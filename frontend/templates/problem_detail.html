@@ -36,6 +36,19 @@
             {% endif %}
         </div>
         
+        <!-- 추출된 텍스트 편집 영역 -->
+        <div id="extractedTextArea" style="display: none;">
+            <div class="form-group">
+                <label for="extractedText">추출된 텍스트 (수정 가능)</label>
+                <textarea id="extractedText" rows="10" class="form-control" 
+                          placeholder="추출된 텍스트가 여기에 표시됩니다..."></textarea>
+            </div>
+            <div class="text-actions">
+                <button class="btn btn-secondary" onclick="cancelExtractedText()">취소</button>
+                <button class="btn btn-primary" onclick="saveExtractedText()">저장</button>
+            </div>
+        </div>
+        
         {% if problem.is_text_extracted and problem.problem_text %}
         <div class="extracted-text">
             <h3>추출된 텍스트 (Markdown)</h3>
@@ -166,8 +179,14 @@ async function extractText() {
         const data = await response.json();
         
         if (data.success) {
-            alert('텍스트 추출이 완료되었습니다!');
-            location.reload();
+            // 추출된 텍스트를 textarea에 표시
+            document.getElementById('extractedText').value = data.text;
+            document.getElementById('extractedTextArea').style.display = 'block';
+            
+            // 버튼 숨기기
+            document.querySelector('.section-header .btn-primary').style.display = 'none';
+            
+            alert('텍스트 추출이 완료되었습니다! 내용을 확인하고 저장해주세요.');
         } else {
             alert('텍스트 추출에 실패했습니다: ' + data.error);
             btnText.style.display = 'inline';
@@ -177,6 +196,36 @@ async function extractText() {
         alert('오류가 발생했습니다: ' + error);
         btnText.style.display = 'inline';
         btnLoading.style.display = 'none';
+    }
+}
+
+function cancelExtractedText() {
+    document.getElementById('extractedTextArea').style.display = 'none';
+    document.querySelector('.section-header .btn-primary').style.display = 'inline-block';
+}
+
+async function saveExtractedText() {
+    const text = document.getElementById('extractedText').value;
+    
+    try {
+        const response = await fetch(`/problems/{{ problem.id }}/text/save`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ text: text })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('저장되었습니다!');
+            location.reload();
+        } else {
+            alert('저장에 실패했습니다: ' + data.error);
+        }
+    } catch (error) {
+        alert('오류가 발생했습니다: ' + error);
     }
 }
 
@@ -190,10 +239,29 @@ function cancelEditProblemText() {
     document.getElementById('editProblemTextArea').style.display = 'none';
 }
 
-function saveProblemText() {
-    const newText = document.getElementById('problemTextEdit').value;
-    // TODO: AJAX로 서버에 저장
-    alert('저장 기능은 추후 구현 예정입니다.');
+async function saveProblemText() {
+    const text = document.getElementById('problemTextEdit').value;
+    
+    try {
+        const response = await fetch(`/problems/{{ problem.id }}/text/save`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ text: text })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('저장되었습니다!');
+            location.reload();
+        } else {
+            alert('저장에 실패했습니다: ' + data.error);
+        }
+    } catch (error) {
+        alert('오류가 발생했습니다: ' + error);
+    }
 }
 
 function editAnswerText() {
