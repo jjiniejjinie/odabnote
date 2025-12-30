@@ -27,24 +27,35 @@ class PDFGenerator:
     
     def _setup_korean_font(self):
         """한글 폰트 설정"""
+        self.font_name = 'Helvetica'  # 기본 폰트
+        
         try:
-            # 시스템 한글 폰트 등록 시도
-            font_paths = [
-                '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
-                '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf',
-                '/System/Library/Fonts/AppleGothic.ttf',
-            ]
+            # 프로젝트 내 폰트 파일 경로 (우선순위)
+            font_path = Path(__file__).parent / 'fonts' / 'NanumGothic.ttf'
             
-            for font_path in font_paths:
-                if Path(font_path).exists():
-                    pdfmetrics.registerFont(TTFont('Korean', font_path))
-                    break
+            if font_path.exists():
+                pdfmetrics.registerFont(TTFont('Korean', str(font_path)))
+                self.font_name = 'Korean'
+                print(f"Korean font loaded from project: {font_path}")
             else:
-                # 폰트를 찾지 못한 경우 기본 폰트 사용
-                print("Warning: Korean font not found. Using default font.")
+                # 시스템 한글 폰트 시도
+                system_font_paths = [
+                    '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+                    '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf',
+                    '/System/Library/Fonts/AppleGothic.ttf',
+                ]
+                
+                for sys_font_path in system_font_paths:
+                    if Path(sys_font_path).exists():
+                        pdfmetrics.registerFont(TTFont('Korean', sys_font_path))
+                        self.font_name = 'Korean'
+                        print(f"Korean font loaded from system: {sys_font_path}")
+                        break
+                else:
+                    print("Warning: Korean font not found. Using default font (Helvetica).")
                 
         except Exception as e:
-            print(f"Font setup error: {e}")
+            print(f"Font setup error: {e}. Using default font.")
     
     def _setup_custom_styles(self):
         """커스텀 스타일 설정"""
@@ -52,7 +63,7 @@ class PDFGenerator:
         self.title_style = ParagraphStyle(
             'CustomTitle',
             parent=self.styles['Heading1'],
-            fontName='Korean',
+            fontName=self.font_name,
             fontSize=18,
             textColor=colors.HexColor('#2C3E50'),
             alignment=TA_CENTER,
@@ -63,7 +74,7 @@ class PDFGenerator:
         self.problem_number_style = ParagraphStyle(
             'ProblemNumber',
             parent=self.styles['Normal'],
-            fontName='Korean',
+            fontName=self.font_name,
             fontSize=12,
             textColor=colors.HexColor('#3498DB'),
             spaceBefore=15,
@@ -75,7 +86,7 @@ class PDFGenerator:
         self.body_style = ParagraphStyle(
             'CustomBody',
             parent=self.styles['Normal'],
-            fontName='Korean',
+            fontName=self.font_name,
             fontSize=11,
             leading=16,
             leftIndent=10
@@ -102,13 +113,21 @@ class PDFGenerator:
         
         story = []
         
-        # 제목과 날짜를 테이블로 배치 (제목 왼쪽, 날짜 오른쪽)
+        # 제목과 날짜를 테이블로 배치
         title_text = f"{unit.workbook.name} - {unit.name}"
         date_text = f"{datetime.now().strftime('%Y-%m-%d')}"
         
+        # 오른쪽 정렬 스타일
+        right_align_style = ParagraphStyle(
+            'RightAlign',
+            parent=self.styles['Normal'],
+            fontName=self.font_name,
+            alignment=TA_LEFT  # 테이블 셀 내에서 오른쪽 정렬
+        )
+        
         header_data = [[
             Paragraph(title_text, self.title_style),
-            Paragraph(f"<para align='right'>{date_text}</para>", self.styles['Normal'])
+            Paragraph(f"<para align='right'>{date_text}</para>", right_align_style)
         ]]
         
         header_table = Table(header_data, colWidths=[140*mm, 40*mm])
@@ -123,7 +142,6 @@ class PDFGenerator:
         # 2x3 그리드로 문제 배치
         problems_per_page = 3
         cell_width = 90*mm
-        cell_height = 90*mm
         
         for page_idx in range(0, len(problems), problems_per_page):
             page_problems = problems[page_idx:page_idx + problems_per_page]
@@ -181,54 +199,6 @@ class PDFGenerator:
             if page_idx + problems_per_page < len(problems):
                 story.append(PageBreak())
         
-        doc.build(story)
-        return output_path
-        
-        # 각 문제 추가
-        for idx, problem in enumerate(problems, 1):
-            # 문제 번호
-            problem_num = Paragraph(f"<b>문제 {idx}</b>", self.problem_number_style)
-            story.append(problem_num)
-            
-            # 문제 이미지
-            if problem.problem_image_path:
-                img_path = Path(problem.problem_image_path)
-                if img_path.exists():
-                    try:
-                        img = Image(str(img_path))
-                        # 이미지 크기 조정 (A4 너비에 맞춤)
-                        img_width = 170*mm
-                        aspect = img.imageHeight / img.imageWidth
-                        img_height = img_width * aspect
-                        
-                        # 최대 높이 제한
-                        max_height = 200*mm
-                        if img_height > max_height:
-                            img_height = max_height
-                            img_width = img_height / aspect
-                        
-                        img.drawWidth = img_width
-                        img.drawHeight = img_height
-                        story.append(img)
-                    except Exception as e:
-                        story.append(Paragraph(f"[이미지 로드 오류: {e}]", self.body_style))
-            
-            # OCR 추출된 텍스트 (있는 경우)
-            if problem.is_text_extracted and problem.problem_text:
-                story.append(Spacer(1, 5*mm))
-                story.append(Paragraph("<b>추출된 텍스트:</b>", self.body_style))
-                
-                # Markdown을 HTML로 변환하여 표시
-                text_html = self._markdown_to_html(problem.problem_text)
-                story.append(Paragraph(text_html, self.body_style))
-            
-            story.append(Spacer(1, 10*mm))
-            
-            # 페이지 나누기 (마지막 문제가 아닌 경우)
-            if idx < len(problems):
-                story.append(PageBreak())
-        
-        # PDF 생성
         doc.build(story)
         return output_path
     
