@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}홈 - 오답노트{% endblock %}
+
+{% block content %}
+<div class="home-container">
+    <div class="welcome-section">
+        <h1>안녕하세요, {{ current_user.username }}님! 👋</h1>
+        <p>오답노트로 효율적인 학습을 시작하세요</p>
+    </div>
+
+    <div class="action-cards">
+        <a href="{{ url_for('problem_add') }}" class="action-card">
+            <div class="card-icon">📷</div>
+            <h3>사진으로 오답 추가</h3>
+            <p>문제를 촬영하여 바로 추가하세요</p>
+        </a>
+
+        <a href="{{ url_for('workbook_list') }}" class="action-card">
+            <div class="card-icon">📚</div>
+            <h3>내 문제집 보기</h3>
+            <p>저장된 문제집을 확인하세요</p>
+        </a>
+    </div>
+
+    <div class="stats-section">
+        <h2>내 통계</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{{ workbooks|length }}</div>
+                <div class="stat-label">문제집</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">
+                    {% set total_units = namespace(count=0) %}
+                    {% for wb in workbooks %}
+                        {% set total_units.count = total_units.count + wb.units|length %}
+                    {% endfor %}
+                    {{ total_units.count }}
+                </div>
+                <div class="stat-label">단원</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">
+                    {% set total_problems = namespace(count=0) %}
+                    {% for wb in workbooks %}
+                        {% for unit in wb.units %}
+                            {% set total_problems.count = total_problems.count + unit.problems|length %}
+                        {% endfor %}
+                    {% endfor %}
+                    {{ total_problems.count }}
+                </div>
+                <div class="stat-label">문제</div>
+            </div>
+        </div>
+    </div>
+
+    {% if workbooks %}
+    <div class="recent-section">
+        <h2>최근 문제집</h2>
+        <div class="workbook-list">
+            {% for workbook in workbooks[:5] %}
+            <div class="workbook-item">
+                <a href="{{ url_for('unit_list', workbook_id=workbook.id) }}" class="workbook-name">
+                    📖 {{ workbook.name }}
+                </a>
+                <div class="workbook-meta">
+                    {{ workbook.units|length }}개 단원
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

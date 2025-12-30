@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}문제 추가 - 오답노트{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>📷 문제 추가</h1>
+</div>
+
+<div class="problem-add-container">
+    <form method="POST" enctype="multipart/form-data" class="problem-add-form">
+        <div class="form-section">
+            <h3>1. 문제 이미지</h3>
+            <div class="image-upload-area" id="imageUploadArea">
+                <input type="file" id="problem_image" name="problem_image" 
+                       accept="image/*" required hidden onchange="previewImage(event)">
+                <label for="problem_image" class="upload-label">
+                    <div class="upload-icon">📷</div>
+                    <div class="upload-text">
+                        <p><strong>클릭하여 이미지 선택</strong></p>
+                        <p>또는 드래그 앤 드롭</p>
+                    </div>
+                </label>
+                <div id="imagePreview" class="image-preview" style="display: none;">
+                    <img id="previewImg" src="" alt="미리보기">
+                    <button type="button" class="btn btn-secondary" onclick="resetImage()">다시 선택</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>2. 저장 위치</h3>
+            
+            <div class="form-group">
+                <label for="workbook_select">문제집 선택 *</label>
+                <div class="select-with-button">
+                    <select id="workbook_select" required onchange="loadUnits()">
+                        <option value="">-- 문제집 선택 --</option>
+                        {% for workbook in workbooks %}
+                        <option value="{{ workbook.id }}">{{ workbook.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="showCreateWorkbookModal()">+ 추가</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="unit_id">단원 선택 *</label>
+                <div class="select-with-button">
+                    <select id="unit_id" name="unit_id" required disabled>
+                        <option value="">-- 먼저 문제집을 선택하세요 --</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="showCreateUnitModal()" id="addUnitBtn" disabled>+ 추가</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a href="{{ url_for('home') }}" class="btn btn-secondary">취소</a>
+            <button type="submit" class="btn btn-primary">문제 추가</button>
+        </div>
+    </form>
+</div>
+
+<!-- 문제집 추가 모달 -->
+<div id="createWorkbookModal" class="modal">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2>문제집 추가</h2>
+            <button class="modal-close" onclick="closeModal('createWorkbookModal')">&times;</button>
+        </div>
+        <form id="createWorkbookForm" onsubmit="return createWorkbook(event)">
+            <div class="form-group">
+                <label for="workbook_name">문제집 이름 *</label>
+                <input type="text" id="workbook_name" required>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createWorkbookModal')">취소</button>
+                <button type="submit" class="btn btn-primary">생성</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 단원 추가 모달 -->
+<div id="createUnitModal" class="modal">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2>단원 추가</h2>
+            <button class="modal-close" onclick="closeModal('createUnitModal')">&times;</button>
+        </div>
+        <form id="createUnitForm" onsubmit="return createUnit(event)">
+            <div class="form-group">
+                <label for="unit_name">단원 이름 *</label>
+                <input type="text" id="unit_name" required>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createUnitModal')">취소</button>
+                <button type="submit" class="btn btn-primary">생성</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function previewImage(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('previewImg').src = e.target.result;
+            document.querySelector('.upload-label').style.display = 'none';
+            document.getElementById('imagePreview').style.display = 'flex';
+        }
+        reader.readAsDataURL(file);
+    }
+}
+
+function resetImage() {
+    document.getElementById('problem_image').value = '';
+    document.querySelector('.upload-label').style.display = 'flex';
+    document.getElementById('imagePreview').style.display = 'none';
+}
+
+async function loadUnits() {
+    const workbookId = document.getElementById('workbook_select').value;
+    const unitSelect = document.getElementById('unit_id');
+    const addUnitBtn = document.getElementById('addUnitBtn');
+    
+    if (!workbookId) {
+        unitSelect.disabled = true;
+        addUnitBtn.disabled = true;
+        unitSelect.innerHTML = '<option value="">-- 먼저 문제집을 선택하세요 --</option>';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/units/by-workbook/${workbookId}`);
+        const data = await response.json();
+        
+        unitSelect.innerHTML = '<option value="">-- 단원 선택 --</option>';
+        data.units.forEach(unit => {
+            unitSelect.innerHTML += `<option value="${unit.id}">${unit.name}</option>`;
+        });
+        
+        unitSelect.disabled = false;
+        addUnitBtn.disabled = false;
+    } catch (error) {
+        alert('단원 목록을 불러오는데 실패했습니다.');
+    }
+}
+
+function showCreateWorkbookModal() {
+    document.getElementById('createWorkbookModal').style.display = 'flex';
+}
+
+function showCreateUnitModal() {
+    const workbookId = document.getElementById('workbook_select').value;
+    if (!workbookId) {
+        alert('먼저 문제집을 선택해주세요.');
+        return;
+    }
+    document.getElementById('createUnitModal').style.display = 'flex';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+async function createWorkbook(event) {
+    event.preventDefault();
+    const name = document.getElementById('workbook_name').value;
+    
+    const formData = new FormData();
+    formData.append('name', name);
+    
+    try {
+        const response = await fetch('/workbooks/create', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            alert('문제집 생성에 실패했습니다.');
+        }
+    } catch (error) {
+        alert('오류가 발생했습니다.');
+    }
+    
+    return false;
+}
+
+async function createUnit(event) {
+    event.preventDefault();
+    const workbookId = document.getElementById('workbook_select').value;
+    const name = document.getElementById('unit_name').value;
+    
+    if (!workbookId) {
+        alert('먼저 문제집을 선택해주세요.');
+        return false;
+    }
+    
+    const formData = new FormData();
+    formData.append('name', name);
+    
+    try {
+        const response = await fetch(`/workbooks/${workbookId}/units/create`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            closeModal('createUnitModal');
+            await loadUnits();
+            document.getElementById('unit_name').value = '';
+        } else {
+            alert('단원 생성에 실패했습니다.');
+        }
+    } catch (error) {
+        alert('오류가 발생했습니다.');
+    }
+    
+    return false;
+}
+
+// 드래그 앤 드롭
+const uploadArea = document.getElementById('imageUploadArea');
+
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, preventDefaults, false);
+});
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+['dragenter', 'dragover'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, () => {
+        uploadArea.classList.add('drag-over');
+    });
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, () => {
+        uploadArea.classList.remove('drag-over');
+    });
+});
+
+uploadArea.addEventListener('drop', (e) => {
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        document.getElementById('problem_image').files = files;
+        previewImage({ target: { files: files } });
+    }
+});
+
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}회원가입 - 오답노트{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1>📚 회원가입</h1>
+            <p>오답노트와 함께 시작하세요</p>
+        </div>
+
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="username">사용자명</label>
+                <input type="text" id="username" name="username" required 
+                       placeholder="사용자명을 입력하세요">
+            </div>
+
+            <div class="form-group">
+                <label for="email">이메일</label>
+                <input type="email" id="email" name="email" required 
+                       placeholder="example@email.com">
+            </div>
+
+            <div class="form-group">
+                <label for="password">비밀번호</label>
+                <input type="password" id="password" name="password" required 
+                       placeholder="비밀번호를 입력하세요">
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password">비밀번호 확인</label>
+                <input type="password" id="confirm_password" name="confirm_password" required 
+                       placeholder="비밀번호를 다시 입력하세요">
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">회원가입</button>
+        </form>
+
+        <div class="auth-footer">
+            <p>이미 계정이 있으신가요? <a href="{{ url_for('login') }}">로그인</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

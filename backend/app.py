@@ -1,0 +1,531 @@
+"""
+Flask 메인 애플리케이션
+"""
+import os
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from werkzeug.utils import secure_filename
+from pathlib import Path
+from datetime import datetime
+
+from models import db, User, Workbook, Unit, Problem
+from config import config
+from mathpix_ocr import MathpixOCR
+from pdf_generator import PDFGenerator
+
+# Flask 앱 생성
+def create_app(config_name='development'):
+    app = Flask(__name__, 
+                template_folder='../frontend/templates',
+                static_folder='../frontend/static')
+    
+    # 설정 로드
+    app.config.from_object(config[config_name])
+    
+    # 데이터베이스 초기화
+    db.init_app(app)
+    
+    # 로그인 매니저 초기화
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'login'
+    login_manager.login_message = '로그인이 필요합니다.'
+    
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+    
+    # OCR 및 PDF 생성기
+    mathpix = MathpixOCR(
+        app.config['MATHPIX_APP_ID'],
+        app.config['MATHPIX_APP_KEY']
+    )
+    pdf_generator = PDFGenerator()
+    
+    # 파일 업로드 헬퍼
+    def allowed_file(filename):
+        return '.' in filename and \
+               filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+    
+    def save_uploaded_file(file, subfolder='problems'):
+        """파일 업로드 및 저장"""
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"{timestamp}_{filename}"
+            
+            save_dir = Path(app.config['UPLOAD_FOLDER']) / subfolder
+            save_dir.mkdir(parents=True, exist_ok=True)
+            
+            filepath = save_dir / filename
+            file.save(str(filepath))
+            return str(filepath)
+        return None
+    
+    # ==================== 라우트 ====================
+    
+    @app.route('/')
+    def index():
+        """메인 페이지"""
+        if current_user.is_authenticated:
+            return redirect(url_for('home'))
+        return redirect(url_for('login'))
+    
+    # ==================== 인증 ====================
+    
+    @app.route('/login', methods=['GET', 'POST'])
+    def login():
+        """로그인"""
+        if current_user.is_authenticated:
+            return redirect(url_for('home'))
+        
+        if request.method == 'POST':
+            email = request.form.get('email')
+            password = request.form.get('password')
+            
+            user = User.query.filter_by(email=email).first()
+            
+            if user and user.check_password(password):
+                login_user(user, remember=True)
+                flash('로그인 성공!', 'success')
+                return redirect(url_for('home'))
+            else:
+                flash('이메일 또는 비밀번호가 올바르지 않습니다.', 'danger')
+        
+        return render_template('login.html')
+    
+    @app.route('/register', methods=['GET', 'POST'])
+    def register():
+        """회원가입"""
+        if current_user.is_authenticated:
+            return redirect(url_for('home'))
+        
+        if request.method == 'POST':
+            username = request.form.get('username')
+            email = request.form.get('email')
+            password = request.form.get('password')
+            confirm_password = request.form.get('confirm_password')
+            
+            # 유효성 검사
+            if password != confirm_password:
+                flash('비밀번호가 일치하지 않습니다.', 'danger')
+                return render_template('register.html')
+            
+            if User.query.filter_by(email=email).first():
+                flash('이미 사용 중인 이메일입니다.', 'danger')
+                return render_template('register.html')
+            
+            if User.query.filter_by(username=username).first():
+                flash('이미 사용 중인 사용자명입니다.', 'danger')
+                return render_template('register.html')
+            
+            # 사용자 생성
+            user = User(username=username, email=email)
+            user.set_password(password)
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            flash('회원가입 성공! 로그인해주세요.', 'success')
+            return redirect(url_for('login'))
+        
+        return render_template('register.html')
+    
+    @app.route('/logout')
+    @login_required
+    def logout():
+        """로그아웃"""
+        logout_user()
+        flash('로그아웃되었습니다.', 'info')
+        return redirect(url_for('login'))
+    
+    # ==================== 홈 ====================
+    
+    @app.route('/home')
+    @login_required
+    def home():
+        """홈 화면"""
+        workbooks = Workbook.query.filter_by(user_id=current_user.id).all()
+        return render_template('home.html', workbooks=workbooks)
+    
+    # ==================== 문제집 관리 ====================
+    
+    @app.route('/workbooks')
+    @login_required
+    def workbook_list():
+        """문제집 목록"""
+        workbooks = Workbook.query.filter_by(user_id=current_user.id)\
+                                  .order_by(Workbook.created_at.desc()).all()
+        return render_template('workbook_list.html', workbooks=workbooks)
+    
+    @app.route('/workbooks/create', methods=['POST'])
+    @login_required
+    def workbook_create():
+        """문제집 생성"""
+        name = request.form.get('name')
+        description = request.form.get('description', '')
+        
+        if not name:
+            flash('문제집 이름을 입력해주세요.', 'danger')
+            return redirect(url_for('workbook_list'))
+        
+        workbook = Workbook(
+            name=name,
+            description=description,
+            user_id=current_user.id
+        )
+        db.session.add(workbook)
+        db.session.commit()
+        
+        flash(f'문제집 "{name}"이 생성되었습니다.', 'success')
+        return redirect(url_for('workbook_list'))
+    
+    @app.route('/workbooks/<int:workbook_id>/edit', methods=['POST'])
+    @login_required
+    def workbook_edit(workbook_id):
+        """문제집 수정"""
+        workbook = Workbook.query.get_or_404(workbook_id)
+        
+        if workbook.user_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('workbook_list'))
+        
+        workbook.name = request.form.get('name')
+        workbook.description = request.form.get('description', '')
+        workbook.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        flash('문제집이 수정되었습니다.', 'success')
+        return redirect(url_for('workbook_list'))
+    
+    @app.route('/workbooks/<int:workbook_id>/delete', methods=['POST'])
+    @login_required
+    def workbook_delete(workbook_id):
+        """문제집 삭제"""
+        workbook = Workbook.query.get_or_404(workbook_id)
+        
+        if workbook.user_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('workbook_list'))
+        
+        db.session.delete(workbook)
+        db.session.commit()
+        
+        flash('문제집이 삭제되었습니다.', 'info')
+        return redirect(url_for('workbook_list'))
+    
+    # ==================== 단원 관리 ====================
+    
+    @app.route('/workbooks/<int:workbook_id>/units')
+    @login_required
+    def unit_list(workbook_id):
+        """단원 목록"""
+        workbook = Workbook.query.get_or_404(workbook_id)
+        
+        if workbook.user_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('workbook_list'))
+        
+        units = Unit.query.filter_by(workbook_id=workbook_id)\
+                         .order_by(Unit.order).all()
+        return render_template('unit_list.html', workbook=workbook, units=units)
+    
+    @app.route('/workbooks/<int:workbook_id>/units/create', methods=['POST'])
+    @login_required
+    def unit_create(workbook_id):
+        """단원 생성"""
+        workbook = Workbook.query.get_or_404(workbook_id)
+        
+        if workbook.user_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('unit_list', workbook_id=workbook_id))
+        
+        name = request.form.get('name')
+        description = request.form.get('description', '')
+        
+        if not name:
+            flash('단원 이름을 입력해주세요.', 'danger')
+            return redirect(url_for('unit_list', workbook_id=workbook_id))
+        
+        # 순서 자동 할당
+        max_order = db.session.query(db.func.max(Unit.order))\
+                              .filter_by(workbook_id=workbook_id).scalar() or 0
+        
+        unit = Unit(
+            name=name,
+            description=description,
+            workbook_id=workbook_id,
+            order=max_order + 1
+        )
+        db.session.add(unit)
+        db.session.commit()
+        
+        flash(f'단원 "{name}"이 생성되었습니다.', 'success')
+        return redirect(url_for('unit_list', workbook_id=workbook_id))
+    
+    @app.route('/units/<int:unit_id>/edit', methods=['POST'])
+    @login_required
+    def unit_edit(unit_id):
+        """단원 수정"""
+        unit = Unit.query.get_or_404(unit_id)
+        
+        if unit.workbook.user_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('workbook_list'))
+        
+        unit.name = request.form.get('name')
+        unit.description = request.form.get('description', '')
+        unit.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        flash('단원이 수정되었습니다.', 'success')
+        return redirect(url_for('unit_list', workbook_id=unit.workbook_id))
+    
+    @app.route('/units/<int:unit_id>/delete', methods=['POST'])
+    @login_required
+    def unit_delete(unit_id):
+        """단원 삭제"""
+        unit = Unit.query.get_or_404(unit_id)
+        workbook_id = unit.workbook_id
+        
+        if unit.workbook.user_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('workbook_list'))
+        
+        db.session.delete(unit)
+        db.session.commit()
+        
+        flash('단원이 삭제되었습니다.', 'info')
+        return redirect(url_for('unit_list', workbook_id=workbook_id))
+    
+    # ==================== 문제 관리 ====================
+    
+    @app.route('/units/<int:unit_id>/problems')
+    @login_required
+    def problem_list(unit_id):
+        """문제 목록"""
+        unit = Unit.query.get_or_404(unit_id)
+        
+        if unit.workbook.user_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('workbook_list'))
+        
+        problems = Problem.query.filter_by(unit_id=unit_id)\
+                                .order_by(Problem.problem_number).all()
+        return render_template('problem_list.html', unit=unit, problems=problems)
+    
+    @app.route('/problems/add', methods=['GET', 'POST'])
+    @login_required
+    def problem_add():
+        """문제 추가"""
+        if request.method == 'GET':
+            workbooks = Workbook.query.filter_by(user_id=current_user.id).all()
+            return render_template('problem_add.html', workbooks=workbooks)
+        
+        # POST 요청
+        unit_id = request.form.get('unit_id')
+        problem_image = request.files.get('problem_image')
+        
+        if not unit_id or not problem_image:
+            flash('단원과 문제 이미지를 선택해주세요.', 'danger')
+            return redirect(url_for('problem_add'))
+        
+        unit = Unit.query.get_or_404(unit_id)
+        if unit.workbook.user_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('home'))
+        
+        # 이미지 저장
+        image_path = save_uploaded_file(problem_image, f'problems/{unit_id}')
+        
+        if not image_path:
+            flash('이미지 업로드에 실패했습니다.', 'danger')
+            return redirect(url_for('problem_add'))
+        
+        # 문제 번호 자동 할당
+        max_number = db.session.query(db.func.max(Problem.problem_number))\
+                               .filter_by(unit_id=unit_id).scalar() or 0
+        
+        problem = Problem(
+            unit_id=unit_id,
+            problem_image_path=image_path,
+            problem_number=max_number + 1
+        )
+        db.session.add(problem)
+        db.session.commit()
+        
+        flash('문제가 추가되었습니다.', 'success')
+        return redirect(url_for('problem_list', unit_id=unit_id))
+    
+    @app.route('/problems/<int:problem_id>')
+    @login_required
+    def problem_detail(problem_id):
+        """문제 상세"""
+        problem = Problem.query.get_or_404(problem_id)
+        
+        if problem.unit.workbook.user_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('home'))
+        
+        return render_template('problem_detail.html', problem=problem)
+    
+    @app.route('/problems/<int:problem_id>/extract', methods=['POST'])
+    @login_required
+    def problem_extract_text(problem_id):
+        """문제 텍스트 추출 (Mathpix OCR)"""
+        problem = Problem.query.get_or_404(problem_id)
+        
+        if problem.unit.workbook.user_id != current_user.id:
+            return jsonify({'success': False, 'error': '권한이 없습니다.'}), 403
+        
+        # OCR 실행
+        result = mathpix.extract_from_image(problem.problem_image_path)
+        
+        if result['success']:
+            problem.problem_text = result['text']
+            problem.is_text_extracted = True
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'text': result['text']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result['error']
+            }), 400
+    
+    @app.route('/problems/<int:problem_id>/answer/add', methods=['POST'])
+    @login_required
+    def problem_add_answer(problem_id):
+        """정답 추가"""
+        problem = Problem.query.get_or_404(problem_id)
+        
+        if problem.unit.workbook.user_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('problem_detail', problem_id=problem_id))
+        
+        answer_type = request.form.get('answer_type')  # 'image' or 'text'
+        
+        if answer_type == 'image':
+            answer_image = request.files.get('answer_image')
+            if answer_image:
+                image_path = save_uploaded_file(answer_image, f'answers/{problem.unit_id}')
+                problem.answer_image_path = image_path
+        elif answer_type == 'text':
+            answer_text = request.form.get('answer_text')
+            problem.answer_text = answer_text
+        
+        problem.has_answer = True
+        db.session.commit()
+        
+        flash('정답이 추가되었습니다.', 'success')
+        return redirect(url_for('problem_detail', problem_id=problem_id))
+    
+    @app.route('/problems/<int:problem_id>/delete', methods=['POST'])
+    @login_required
+    def problem_delete(problem_id):
+        """문제 삭제"""
+        problem = Problem.query.get_or_404(problem_id)
+        unit_id = problem.unit_id
+        
+        if problem.unit.workbook.user_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('home'))
+        
+        db.session.delete(problem)
+        db.session.commit()
+        
+        flash('문제가 삭제되었습니다.', 'info')
+        return redirect(url_for('problem_list', unit_id=unit_id))
+    
+    # ==================== PDF 생성 ====================
+    
+    @app.route('/units/<int:unit_id>/pdf/problems')
+    @login_required
+    def generate_problem_pdf(unit_id):
+        """문제지 PDF 생성"""
+        unit = Unit.query.get_or_404(unit_id)
+        
+        if unit.workbook.user_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('home'))
+        
+        problems = Problem.query.filter_by(unit_id=unit_id)\
+                                .order_by(Problem.problem_number).all()
+        
+        if not problems:
+            flash('문제가 없습니다.', 'warning')
+            return redirect(url_for('problem_list', unit_id=unit_id))
+        
+        # PDF 생성
+        pdf_dir = Path(app.config['UPLOAD_FOLDER']) / 'pdfs'
+        pdf_dir.mkdir(exist_ok=True)
+        
+        filename = f"문제지_{unit.workbook.name}_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        output_path = pdf_dir / filename
+        
+        pdf_generator.generate_problem_pdf(unit, problems, str(output_path))
+        
+        return send_file(str(output_path), as_attachment=True, download_name=filename)
+    
+    @app.route('/units/<int:unit_id>/pdf/answers')
+    @login_required
+    def generate_answer_pdf(unit_id):
+        """정답지 PDF 생성"""
+        unit = Unit.query.get_or_404(unit_id)
+        
+        if unit.workbook.user_id != current_user.id:
+            flash('권한이 없습니다.', 'danger')
+            return redirect(url_for('home'))
+        
+        problems = Problem.query.filter_by(unit_id=unit_id)\
+                                .order_by(Problem.problem_number).all()
+        
+        if not problems:
+            flash('문제가 없습니다.', 'warning')
+            return redirect(url_for('problem_list', unit_id=unit_id))
+        
+        # PDF 생성
+        pdf_dir = Path(app.config['UPLOAD_FOLDER']) / 'pdfs'
+        pdf_dir.mkdir(exist_ok=True)
+        
+        filename = f"정답지_{unit.workbook.name}_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        output_path = pdf_dir / filename
+        
+        pdf_generator.generate_answer_pdf(unit, problems, str(output_path))
+        
+        return send_file(str(output_path), as_attachment=True, download_name=filename)
+    
+    # ==================== API (AJAX용) ====================
+    
+    @app.route('/api/units/by-workbook/<int:workbook_id>')
+    @login_required
+    def api_get_units(workbook_id):
+        """특정 문제집의 단원 목록 반환 (AJAX)"""
+        workbook = Workbook.query.get_or_404(workbook_id)
+        
+        if workbook.user_id != current_user.id:
+            return jsonify({'error': '권한이 없습니다.'}), 403
+        
+        units = Unit.query.filter_by(workbook_id=workbook_id)\
+                         .order_by(Unit.order).all()
+        
+        return jsonify({
+            'units': [{'id': u.id, 'name': u.name} for u in units]
+        })
+    
+    return app
+
+
+# 개발 서버 실행
+if __name__ == '__main__':
+    app = create_app('development')
+    
+    # 데이터베이스 테이블 생성
+    with app.app_context():
+        db.create_all()
+        print("Database tables created!")
+    
+    app.run(debug=True, host='0.0.0.0', port=5000)

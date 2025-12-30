@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}{{ unit.name }} - 문제 목록 - 오답노트{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="{{ url_for('workbook_list') }}">문제집</a>
+    <span class="separator">›</span>
+    <a href="{{ url_for('unit_list', workbook_id=unit.workbook_id) }}">{{ unit.workbook.name }}</a>
+    <span class="separator">›</span>
+    <span>{{ unit.name }}</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <h1>📝 {{ unit.name }}</h1>
+        <p class="subtitle">{{ unit.problem_count }}개의 문제</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('generate_problem_pdf', unit_id=unit.id) }}" class="btn btn-secondary">📄 문제지 PDF</a>
+        <a href="{{ url_for('generate_answer_pdf', unit_id=unit.id) }}" class="btn btn-secondary">✅ 정답지 PDF</a>
+    </div>
+</div>
+
+<div class="problem-list">
+    {% if problems %}
+        {% for problem in problems %}
+        <div class="problem-item">
+            <div class="problem-number">
+                <span class="number-badge">{{ problem.problem_number }}</span>
+            </div>
+            
+            <div class="problem-preview">
+                {% if problem.problem_image_path %}
+                <img src="/{{ problem.problem_image_path }}" alt="문제 {{ problem.problem_number }}" 
+                     onclick="showImageModal('{{ problem.problem_image_path }}')">
+                {% else %}
+                <div class="no-image">이미지 없음</div>
+                {% endif %}
+            </div>
+            
+            <div class="problem-info">
+                <div class="problem-status">
+                    {% if problem.is_text_extracted %}
+                    <span class="status-badge status-success">✓ 텍스트 추출됨</span>
+                    {% else %}
+                    <span class="status-badge status-pending">⊘ 텍스트 미추출</span>
+                    {% endif %}
+                    
+                    {% if problem.has_answer %}
+                    <span class="status-badge status-success">✓ 정답 있음</span>
+                    {% else %}
+                    <span class="status-badge status-warning">⊘ 정답 없음</span>
+                    {% endif %}
+                </div>
+                
+                <div class="problem-date">
+                    추가일: {{ problem.created_at.strftime('%Y-%m-%d %H:%M') }}
+                </div>
+            </div>
+            
+            <div class="problem-actions">
+                <a href="{{ url_for('problem_detail', problem_id=problem.id) }}" 
+                   class="btn btn-primary btn-sm">상세보기</a>
+                <button class="btn-icon" onclick="deleteProblem({{ problem.id }}, {{ problem.problem_number }})" 
+                        title="삭제">🗑️</button>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📝</div>
+            <h3>문제가 없습니다</h3>
+            <p>첫 번째 문제를 추가해보세요!</p>
+            <a href="{{ url_for('problem_add') }}" class="btn btn-primary">+ 문제 추가</a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- 이미지 모달 -->
+<div id="imageModal" class="modal">
+    <div class="modal-content modal-image">
+        <button class="modal-close" onclick="closeModal('imageModal')">&times;</button>
+        <img id="modalImage" src="" alt="문제 이미지">
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showImageModal(imagePath) {
+    document.getElementById('modalImage').src = '/' + imagePath;
+    document.getElementById('imageModal').style.display = 'flex';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+function deleteProblem(id, number) {
+    if (confirm(`문제 ${number}번을 삭제하시겠습니까?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/problems/${id}/delete`;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

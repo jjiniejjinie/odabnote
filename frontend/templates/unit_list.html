@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}{{ workbook.name }} - 단원 - 오답노트{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="{{ url_for('workbook_list') }}">문제집</a>
+    <span class="separator">›</span>
+    <span>{{ workbook.name }}</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <h1>📖 {{ workbook.name }}</h1>
+        {% if workbook.description %}
+        <p class="subtitle">{{ workbook.description }}</p>
+        {% endif %}
+    </div>
+    <button class="btn btn-primary" onclick="showCreateModal()">+ 단원 추가</button>
+</div>
+
+<div class="unit-list">
+    {% if units %}
+        {% for unit in units %}
+        <div class="unit-card">
+            <div class="unit-header">
+                <div>
+                    <h3>{{ unit.name }}</h3>
+                    {% if unit.description %}
+                    <p class="unit-description">{{ unit.description }}</p>
+                    {% endif %}
+                </div>
+                <div class="unit-actions">
+                    <button class="btn-icon" onclick="showEditModal({{ unit.id }}, '{{ unit.name }}', '{{ unit.description }}')" title="수정">✏️</button>
+                    <button class="btn-icon" onclick="deleteUnit({{ unit.id }}, '{{ unit.name }}')" title="삭제">🗑️</button>
+                </div>
+            </div>
+            
+            <div class="unit-stats">
+                <span class="stat-badge">📝 {{ unit.problem_count }}개 문제</span>
+            </div>
+            
+            <a href="{{ url_for('problem_list', unit_id=unit.id) }}" class="btn btn-outline btn-block">
+                문제 보기 →
+            </a>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📑</div>
+            <h3>단원이 없습니다</h3>
+            <p>첫 번째 단원을 만들어보세요!</p>
+            <button class="btn btn-primary" onclick="showCreateModal()">+ 단원 추가</button>
+        </div>
+    {% endif %}
+</div>
+
+<!-- 단원 추가 모달 -->
+<div id="createModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>단원 추가</h2>
+            <button class="modal-close" onclick="closeModal('createModal')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('unit_create', workbook_id=workbook.id) }}">
+            <div class="form-group">
+                <label for="name">단원 이름 *</label>
+                <input type="text" id="name" name="name" required placeholder="예: 1단원 - 방정식">
+            </div>
+            <div class="form-group">
+                <label for="description">설명</label>
+                <textarea id="description" name="description" rows="3" placeholder="단원에 대한 설명을 입력하세요"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createModal')">취소</button>
+                <button type="submit" class="btn btn-primary">생성</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 단원 수정 모달 -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>단원 수정</h2>
+            <button class="modal-close" onclick="closeModal('editModal')">&times;</button>
+        </div>
+        <form id="editForm" method="POST">
+            <div class="form-group">
+                <label for="edit_name">단원 이름 *</label>
+                <input type="text" id="edit_name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="edit_description">설명</label>
+                <textarea id="edit_description" name="description" rows="3"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">취소</button>
+                <button type="submit" class="btn btn-primary">저장</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showCreateModal() {
+    document.getElementById('createModal').style.display = 'flex';
+}
+
+function showEditModal(id, name, description) {
+    const modal = document.getElementById('editModal');
+    const form = document.getElementById('editForm');
+    
+    form.action = `/units/${id}/edit`;
+    document.getElementById('edit_name').value = name;
+    document.getElementById('edit_description').value = description;
+    
+    modal.style.display = 'flex';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+function deleteUnit(id, name) {
+    if (confirm(`"${name}" 단원을 삭제하시겠습니까?\n모든 문제가 함께 삭제됩니다.`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/units/${id}/delete`;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

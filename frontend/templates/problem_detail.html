@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}문제 {{ problem.problem_number }} - 오답노트{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="{{ url_for('workbook_list') }}">문제집</a>
+    <span class="separator">›</span>
+    <a href="{{ url_for('unit_list', workbook_id=problem.unit.workbook_id) }}">{{ problem.unit.workbook.name }}</a>
+    <span class="separator">›</span>
+    <a href="{{ url_for('problem_list', unit_id=problem.unit_id) }}">{{ problem.unit.name }}</a>
+    <span class="separator">›</span>
+    <span>문제 {{ problem.problem_number }}</span>
+</div>
+
+<div class="page-header">
+    <h1>📝 문제 {{ problem.problem_number }}</h1>
+</div>
+
+<div class="problem-detail-container">
+    <!-- 문제 섹션 -->
+    <div class="detail-section">
+        <div class="section-header">
+            <h2>문제</h2>
+            {% if not problem.is_text_extracted %}
+            <button class="btn btn-primary" onclick="extractText()">
+                <span id="extractBtn">🔍 텍스트 추출하기</span>
+                <span id="extractLoading" style="display: none;">⏳ 추출 중...</span>
+            </button>
+            {% endif %}
+        </div>
+        
+        <div class="problem-image-container">
+            {% if problem.problem_image_path %}
+            <img src="/{{ problem.problem_image_path }}" alt="문제 이미지" class="problem-image">
+            {% endif %}
+        </div>
+        
+        {% if problem.is_text_extracted and problem.problem_text %}
+        <div class="extracted-text">
+            <h3>추출된 텍스트 (Markdown)</h3>
+            <div class="text-display" id="problemText">
+                {{ problem.problem_text }}
+            </div>
+            <div class="text-actions">
+                <button class="btn btn-secondary btn-sm" onclick="editProblemText()">✏️ 수정</button>
+                <button class="btn btn-secondary btn-sm" onclick="copyText('problemText')">📋 복사</button>
+            </div>
+            
+            <!-- 수정 모드 -->
+            <div id="editProblemTextArea" style="display: none;">
+                <textarea id="problemTextEdit" rows="10" class="form-control">{{ problem.problem_text }}</textarea>
+                <div class="text-actions">
+                    <button class="btn btn-secondary" onclick="cancelEditProblemText()">취소</button>
+                    <button class="btn btn-primary" onclick="saveProblemText()">저장</button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- 정답 섹션 -->
+    <div class="detail-section">
+        <div class="section-header">
+            <h2>정답</h2>
+            {% if not problem.has_answer %}
+            <button class="btn btn-primary" onclick="showAnswerModal()">➕ 정답 추가</button>
+            {% endif %}
+        </div>
+        
+        {% if problem.has_answer %}
+            {% if problem.answer_image_path %}
+            <div class="answer-image-container">
+                <img src="/{{ problem.answer_image_path }}" alt="정답 이미지" class="answer-image">
+            </div>
+            {% endif %}
+            
+            {% if problem.answer_text %}
+            <div class="extracted-text">
+                <h3>정답 (Markdown)</h3>
+                <div class="text-display" id="answerText">
+                    {{ problem.answer_text }}
+                </div>
+                <div class="text-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="editAnswerText()">✏️ 수정</button>
+                    <button class="btn btn-secondary btn-sm" onclick="copyText('answerText')">📋 복사</button>
+                </div>
+                
+                <!-- 수정 모드 -->
+                <div id="editAnswerTextArea" style="display: none;">
+                    <textarea id="answerTextEdit" rows="10" class="form-control">{{ problem.answer_text }}</textarea>
+                    <div class="text-actions">
+                        <button class="btn btn-secondary" onclick="cancelEditAnswerText()">취소</button>
+                        <button class="btn btn-primary" onclick="saveAnswerText()">저장</button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% else %}
+            <div class="no-answer">
+                <p>정답이 추가되지 않았습니다.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 정답 추가 모달 -->
+<div id="answerModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>정답 추가</h2>
+            <button class="modal-close" onclick="closeModal('answerModal')">&times;</button>
+        </div>
+        
+        <div class="modal-tabs">
+            <button class="tab-btn active" onclick="switchTab('image')">이미지로 추가</button>
+            <button class="tab-btn" onclick="switchTab('text')">텍스트로 추가</button>
+        </div>
+        
+        <form method="POST" action="{{ url_for('problem_add_answer', problem_id=problem.id) }}" 
+              enctype="multipart/form-data" id="answerForm">
+            
+            <!-- 이미지 탭 -->
+            <div id="imageTab" class="tab-content active">
+                <input type="hidden" name="answer_type" value="image">
+                <div class="form-group">
+                    <label for="answer_image">정답 이미지</label>
+                    <input type="file" id="answer_image" name="answer_image" accept="image/*" class="form-control">
+                </div>
+            </div>
+            
+            <!-- 텍스트 탭 -->
+            <div id="textTab" class="tab-content">
+                <input type="hidden" name="answer_type" value="text">
+                <div class="form-group">
+                    <label for="answer_text">정답 텍스트 (Markdown)</label>
+                    <textarea id="answer_text" name="answer_text" rows="10" class="form-control" 
+                              placeholder="Markdown 형식으로 정답을 입력하세요..."></textarea>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('answerModal')">취소</button>
+                <button type="submit" class="btn btn-primary">저장</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function extractText() {
+    const btnText = document.getElementById('extractBtn');
+    const btnLoading = document.getElementById('extractLoading');
+    
+    btnText.style.display = 'none';
+    btnLoading.style.display = 'inline';
+    
+    try {
+        const response = await fetch(`/problems/{{ problem.id }}/extract`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('텍스트 추출이 완료되었습니다!');
+            location.reload();
+        } else {
+            alert('텍스트 추출에 실패했습니다: ' + data.error);
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+        }
+    } catch (error) {
+        alert('오류가 발생했습니다: ' + error);
+        btnText.style.display = 'inline';
+        btnLoading.style.display = 'none';
+    }
+}
+
+function editProblemText() {
+    document.getElementById('problemText').style.display = 'none';
+    document.getElementById('editProblemTextArea').style.display = 'block';
+}
+
+function cancelEditProblemText() {
+    document.getElementById('problemText').style.display = 'block';
+    document.getElementById('editProblemTextArea').style.display = 'none';
+}
+
+function saveProblemText() {
+    const newText = document.getElementById('problemTextEdit').value;
+    // TODO: AJAX로 서버에 저장
+    alert('저장 기능은 추후 구현 예정입니다.');
+}
+
+function editAnswerText() {
+    document.getElementById('answerText').style.display = 'none';
+    document.getElementById('editAnswerTextArea').style.display = 'block';
+}
+
+function cancelEditAnswerText() {
+    document.getElementById('answerText').style.display = 'block';
+    document.getElementById('editAnswerTextArea').style.display = 'none';
+}
+
+function saveAnswerText() {
+    const newText = document.getElementById('answerTextEdit').value;
+    // TODO: AJAX로 서버에 저장
+    alert('저장 기능은 추후 구현 예정입니다.');
+}
+
+function copyText(elementId) {
+    const text = document.getElementById(elementId).innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        alert('텍스트가 클립보드에 복사되었습니다!');
+    });
+}
+
+function showAnswerModal() {
+    document.getElementById('answerModal').style.display = 'flex';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+function switchTab(tab) {
+    // 탭 버튼 활성화
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    // 탭 컨텐츠 전환
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    if (tab === 'image') {
+        document.getElementById('imageTab').classList.add('active');
+        document.querySelector('input[name="answer_type"]').value = 'image';
+    } else {
+        document.getElementById('textTab').classList.add('active');
+        document.querySelector('input[name="answer_type"]').value = 'text';
+    }
+}
+
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}
