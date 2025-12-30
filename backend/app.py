@@ -1,8 +1,11 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 """
 Flask 메인 애플리케이션
 """
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify, send_from_directory
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.utils import secure_filename
 from pathlib import Path
@@ -59,7 +62,10 @@ def create_app(config_name='development'):
             
             filepath = save_dir / filename
             file.save(str(filepath))
-            return str(filepath)
+            
+            # 상대 경로로 반환
+            relative_path = f"uploads/{subfolder}/{filename}"
+            return relative_path
         return None
     
     # ==================== 라우트 ====================
@@ -372,20 +378,22 @@ def create_app(config_name='development'):
     @app.route('/problems/<int:problem_id>/extract', methods=['POST'])
     @login_required
     def problem_extract_text(problem_id):
-        """문제 텍스트 추출 (Mathpix OCR)"""
+        """문제 텍스트 추출 (Mathpix OCR) - 임시로만 반환"""
         problem = Problem.query.get_or_404(problem_id)
         
         if problem.unit.workbook.user_id != current_user.id:
             return jsonify({'success': False, 'error': '권한이 없습니다.'}), 403
         
+        # 절대 경로로 변환
+        from pathlib import Path
+        base_dir = Path(__file__).parent.parent
+        absolute_path = base_dir / problem.problem_image_path
+        
         # OCR 실행
-        result = mathpix.extract_from_image(problem.problem_image_path)
+        result = mathpix.extract_from_image(str(absolute_path))
         
         if result['success']:
-            problem.problem_text = result['text']
-            problem.is_text_extracted = True
-            db.session.commit()
-            
+            # DB에 저장하지 않고 텍스트만 반환
             return jsonify({
                 'success': True,
                 'text': result['text']
@@ -396,10 +404,28 @@ def create_app(config_name='development'):
                 'error': result['error']
             }), 400
     
+    @app.route('/problems/<int:problem_id>/text/save', methods=['POST'])
+    @login_required
+    def problem_save_text(problem_id):
+        """문제 텍스트 저장"""
+        problem = Problem.query.get_or_404(problem_id)
+        
+        if problem.unit.workbook.user_id != current_user.id:
+            return jsonify({'success': False, 'error': '권한이 없습니다.'}), 403
+        
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        problem.problem_text = text
+        problem.is_text_extracted = True
+        db.session.commit()
+        
+        return jsonify({'success': True})
+    
     @app.route('/problems/<int:problem_id>/answer/add', methods=['POST'])
     @login_required
     def problem_add_answer(problem_id):
-        """정답 추가"""
+        """정답 추가/수정"""
         problem = Problem.query.get_or_404(problem_id)
         
         if problem.unit.workbook.user_id != current_user.id:
@@ -412,15 +438,19 @@ def create_app(config_name='development'):
             answer_image = request.files.get('answer_image')
             if answer_image:
                 image_path = save_uploaded_file(answer_image, f'answers/{problem.unit_id}')
+                # 기존 정답 덮어쓰기
                 problem.answer_image_path = image_path
+                problem.answer_text = None  # 텍스트 정답 제거
         elif answer_type == 'text':
             answer_text = request.form.get('answer_text')
+            # 기존 정답 덮어쓰기
             problem.answer_text = answer_text
+            problem.answer_image_path = None  # 이미지 정답 제거
         
         problem.has_answer = True
         db.session.commit()
         
-        flash('정답이 추가되었습니다.', 'success')
+        flash('정답이 저장되었습니다.', 'success')
         return redirect(url_for('problem_detail', problem_id=problem_id))
     
     @app.route('/problems/<int:problem_id>/delete', methods=['POST'])
@@ -516,11 +546,28 @@ def create_app(config_name='development'):
             'units': [{'id': u.id, 'name': u.name} for u in units]
         })
     
+    # ==================== 정적 파일 서빙 ====================
+    
+    @app.route('/uploads/<path:filename>')
+    def uploaded_file(filename):
+        """업로드된 파일 서빙"""
+        upload_folder = Path(app.config['UPLOAD_FOLDER'])
+        return send_from_directory(upload_folder, filename)
+    
     return app
 
 
+# Railway/Render/Gunicorn용: app 객체를 모듈 레벨로 노출
+app = create_app(os.environ.get('FLASK_ENV', 'production'))
+
+# 데이터베이스 테이블 자동 생성 (배포 환경)
+with app.app_context():
+    db.create_all()
+    print("Database tables created!")
+
 # 개발 서버 실행
 if __name__ == '__main__':
+    # 개발 환경 재생성
     app = create_app('development')
     
     # 데이터베이스 테이블 생성
