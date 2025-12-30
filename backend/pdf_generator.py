@@ -27,39 +27,35 @@ class PDFGenerator:
     
     def _setup_korean_font(self):
         """한글 폰트 설정"""
+        self.font_name = 'Helvetica'  # 기본 폰트
+        
         try:
-            # 1. 시스템 한글 폰트 등록 시도
-            font_paths = [
-                '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
-                '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf',
-                '/System/Library/Fonts/AppleGothic.ttf',
-            ]
+            # 프로젝트 내 폰트 파일 경로 (우선순위)
+            font_path = Path(__file__).parent / 'fonts' / 'NanumGothic.ttf'
             
-            for font_path in font_paths:
-                if Path(font_path).exists():
-                    pdfmetrics.registerFont(TTFont('Korean', font_path))
-                    print(f"Korean font loaded: {font_path}")
-                    return
-            
-            # 2. 시스템 폰트 없으면 Google Fonts에서 다운로드
-            print("System Korean font not found. Downloading Noto Sans KR...")
-            font_url = "https://github.com/google/fonts/raw/main/ofl/notosanskr/NotoSansKR-Regular.ttf"
-            
-            import urllib.request
-            font_dir = Path(__file__).parent / 'fonts'
-            font_dir.mkdir(exist_ok=True)
-            font_path = font_dir / 'NotoSansKR-Regular.ttf'
-            
-            if not font_path.exists():
-                urllib.request.urlretrieve(font_url, str(font_path))
-                print(f"Downloaded font to: {font_path}")
-            
-            pdfmetrics.registerFont(TTFont('Korean', str(font_path)))
-            print("Korean font loaded successfully!")
+            if font_path.exists():
+                pdfmetrics.registerFont(TTFont('Korean', str(font_path)))
+                self.font_name = 'Korean'
+                print(f"Korean font loaded from project: {font_path}")
+            else:
+                # 시스템 한글 폰트 시도
+                system_font_paths = [
+                    '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+                    '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf',
+                    '/System/Library/Fonts/AppleGothic.ttf',
+                ]
+                
+                for sys_font_path in system_font_paths:
+                    if Path(sys_font_path).exists():
+                        pdfmetrics.registerFont(TTFont('Korean', sys_font_path))
+                        self.font_name = 'Korean'
+                        print(f"Korean font loaded from system: {sys_font_path}")
+                        break
+                else:
+                    print("Warning: Korean font not found. Using default font (Helvetica).")
                 
         except Exception as e:
-            print(f"Font setup error: {e}")
-            print("WARNING: Korean text will not display correctly!")
+            print(f"Font setup error: {e}. Using default font.")
     
     def _setup_custom_styles(self):
         """커스텀 스타일 설정"""
@@ -67,7 +63,7 @@ class PDFGenerator:
         self.title_style = ParagraphStyle(
             'CustomTitle',
             parent=self.styles['Heading1'],
-            fontName='Korean',
+            fontName=self.font_name,
             fontSize=18,
             textColor=colors.HexColor('#2C3E50'),
             alignment=TA_CENTER,
@@ -78,7 +74,7 @@ class PDFGenerator:
         self.problem_number_style = ParagraphStyle(
             'ProblemNumber',
             parent=self.styles['Normal'],
-            fontName='Korean',
+            fontName=self.font_name,
             fontSize=12,
             textColor=colors.HexColor('#3498DB'),
             spaceBefore=15,
@@ -90,7 +86,7 @@ class PDFGenerator:
         self.body_style = ParagraphStyle(
             'CustomBody',
             parent=self.styles['Normal'],
-            fontName='Korean',
+            fontName=self.font_name,
             fontSize=11,
             leading=16,
             leftIndent=10
@@ -98,8 +94,7 @@ class PDFGenerator:
     
     def generate_problem_pdf(self, unit, problems, output_path):
         """
-        문제지 PDF 생성 (2x3 그리드 형식)
-        왼쪽: 문제 이미지, 오른쪽: 풀이 공간
+        문제지 PDF 생성
         
         Args:
             unit: Unit 모델 객체
@@ -109,10 +104,10 @@ class PDFGenerator:
         doc = SimpleDocTemplate(
             output_path,
             pagesize=A4,
-            topMargin=10*mm,
-            bottomMargin=10*mm,
-            leftMargin=10*mm,
-            rightMargin=10*mm
+            topMargin=20*mm,
+            bottomMargin=20*mm,
+            leftMargin=20*mm,
+            rightMargin=20*mm
         )
         
         story = []
@@ -120,82 +115,55 @@ class PDFGenerator:
         # 제목
         title = f"{unit.workbook.name} - {unit.name}"
         story.append(Paragraph(title, self.title_style))
-        story.append(Spacer(1, 5*mm))
+        story.append(Spacer(1, 10*mm))
         
         # 메타 정보
         meta_info = f"문제 수: {len(problems)}개 | 생성일: {datetime.now().strftime('%Y-%m-%d')}"
         story.append(Paragraph(meta_info, self.styles['Normal']))
-        story.append(Spacer(1, 5*mm))
-        story.append(PageBreak())
+        story.append(Spacer(1, 10*mm))
         
-        # 2x3 그리드로 문제 배치
-        problems_per_page = 3
-        cell_width = 90*mm  # 한 셀의 너비
-        cell_height = 90*mm  # 한 셀의 높이
-        
-        for page_idx in range(0, len(problems), problems_per_page):
-            page_problems = problems[page_idx:page_idx + problems_per_page]
+        # 각 문제 추가
+        for idx, problem in enumerate(problems, 1):
+            # 문제 번호
+            problem_num = Paragraph(f"<b>문제 {idx}</b>", self.problem_number_style)
+            story.append(problem_num)
             
-            # 한 페이지에 들어갈 테이블 데이터 생성
-            table_data = []
+            # 문제 이미지
+            if problem.problem_image_path:
+                img_path = Path(problem.problem_image_path)
+                if img_path.exists():
+                    try:
+                        img = Image(str(img_path))
+                        # 이미지 크기 조정 (A4 너비에 맞춤)
+                        img_width = 170*mm
+                        aspect = img.imageHeight / img.imageWidth
+                        img_height = img_width * aspect
+                        
+                        # 최대 높이 제한
+                        max_height = 200*mm
+                        if img_height > max_height:
+                            img_height = max_height
+                            img_width = img_height / aspect
+                        
+                        img.drawWidth = img_width
+                        img.drawHeight = img_height
+                        story.append(img)
+                    except Exception as e:
+                        story.append(Paragraph(f"[이미지 로드 오류: {e}]", self.body_style))
             
-            for problem in page_problems:
-                # 왼쪽 셀: 문제 번호 + 이미지
-                left_content = []
-                problem_num_text = f"문제 {problem.problem_number}"
-                left_content.append(Paragraph(f"<b>{problem_num_text}</b>", self.problem_number_style))
+            # OCR 추출된 텍스트 (있는 경우)
+            if problem.is_text_extracted and problem.problem_text:
+                story.append(Spacer(1, 5*mm))
+                story.append(Paragraph("<b>추출된 텍스트:</b>", self.body_style))
                 
-                if problem.problem_image_path:
-                    img_path = Path(problem.problem_image_path)
-                    if img_path.exists():
-                        try:
-                            img = Image(str(img_path))
-                            # 이미지 크기를 셀에 맞게 조정
-                            max_width = 85*mm
-                            max_height = 80*mm
-                            
-                            aspect = img.imageHeight / img.imageWidth
-                            img_width = max_width
-                            img_height = img_width * aspect
-                            
-                            if img_height > max_height:
-                                img_height = max_height
-                                img_width = img_height / aspect
-                            
-                            img.drawWidth = img_width
-                            img.drawHeight = img_height
-                            left_content.append(img)
-                        except Exception as e:
-                            left_content.append(Paragraph(f"[이미지 로드 오류]", self.body_style))
-                
-                # 오른쪽 셀: 풀이 공간 (빈 칸)
-                right_content = [Paragraph("<b>풀이</b>", self.problem_number_style)]
-                
-                # 테이블 행 추가
-                table_data.append([left_content, right_content])
+                # Markdown을 HTML로 변환하여 표시
+                text_html = self._markdown_to_html(problem.problem_text)
+                story.append(Paragraph(text_html, self.body_style))
             
-            # 테이블 생성
-            table = Table(table_data, colWidths=[cell_width, cell_width])
-            table.setStyle(TableStyle([
-                # 테두리
-                ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-                ('BOX', (0, 0), (-1, -1), 2, colors.black),
-                
-                # 셀 정렬
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                
-                # 패딩
-                ('LEFTPADDING', (0, 0), (-1, -1), 5),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
-                ('TOPPADDING', (0, 0), (-1, -1), 5),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-            ]))
+            story.append(Spacer(1, 10*mm))
             
-            story.append(table)
-            
-            # 다음 페이지로 (마지막 페이지가 아니면)
-            if page_idx + problems_per_page < len(problems):
+            # 페이지 나누기 (마지막 문제가 아닌 경우)
+            if idx < len(problems):
                 story.append(PageBreak())
         
         # PDF 생성
