@@ -27,6 +27,8 @@ class PDFGenerator:
     
     def _setup_korean_font(self):
         """한글 폰트 설정"""
+        self.font_name = 'Helvetica'  # 기본 폰트
+        
         try:
             # 시스템 한글 폰트 등록 시도
             font_paths = [
@@ -38,13 +40,15 @@ class PDFGenerator:
             for font_path in font_paths:
                 if Path(font_path).exists():
                     pdfmetrics.registerFont(TTFont('Korean', font_path))
+                    self.font_name = 'Korean'
+                    print(f"Korean font loaded: {font_path}")
                     break
             else:
                 # 폰트를 찾지 못한 경우 기본 폰트 사용
-                print("Warning: Korean font not found. Using default font.")
+                print("Warning: Korean font not found. Using default font (Helvetica).")
                 
         except Exception as e:
-            print(f"Font setup error: {e}")
+            print(f"Font setup error: {e}. Using default font.")
     
     def _setup_custom_styles(self):
         """커스텀 스타일 설정"""
@@ -52,7 +56,7 @@ class PDFGenerator:
         self.title_style = ParagraphStyle(
             'CustomTitle',
             parent=self.styles['Heading1'],
-            fontName='Korean',
+            fontName=self.font_name,
             fontSize=18,
             textColor=colors.HexColor('#2C3E50'),
             alignment=TA_CENTER,
@@ -63,7 +67,7 @@ class PDFGenerator:
         self.problem_number_style = ParagraphStyle(
             'ProblemNumber',
             parent=self.styles['Normal'],
-            fontName='Korean',
+            fontName=self.font_name,
             fontSize=12,
             textColor=colors.HexColor('#3498DB'),
             spaceBefore=15,
@@ -75,7 +79,7 @@ class PDFGenerator:
         self.body_style = ParagraphStyle(
             'CustomBody',
             parent=self.styles['Normal'],
-            fontName='Korean',
+            fontName=self.font_name,
             fontSize=11,
             leading=16,
             leftIndent=10
