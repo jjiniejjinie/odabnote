@@ -254,5 +254,44 @@ async function fetchJSON(url, options = {}) {
     }
 }
 
+// 텍스트 추출 기능
+async function extractText(problemId) {
+    const button = event.target;
+    const originalText = button.textContent;
+    
+    try {
+        // 버튼 비활성화
+        button.disabled = true;
+        button.textContent = '⏳ 추출 중...';
+        
+        // API 호출
+        const response = await fetch(`/problems/${problemId}/extract`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // 추출된 텍스트를 문제 입력 필드에 표시
+            const problemTextarea = document.querySelector('textarea[name="problem_text"]');
+            if (problemTextarea) {
+                problemTextarea.value = data.text;
+                showToast('✅ 텍스트 추출 완료!');
+            } else {
+                showToast('✅ 텍스트 추출 완료: ' + data.text.substring(0, 50) + '...');
+            }
+        } else {
+            showToast('텍스트 추출에 실패했습니다: ' + (data.error || '알 수 없는 오류'), 'error');
+        }
+    } catch (error) {
+        console.error('추출 오류:', error);
+        showToast('텍스트 추출 중 오류가 발생했습니다.', 'error');
+    } finally {
+        // 버튼 복원
+        button.disabled = false;
+        button.textContent = originalText;
+    }
+}
+
 // 초기화
 console.log('오답노트 앱 로드 완료');
