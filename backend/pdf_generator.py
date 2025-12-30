@@ -27,35 +27,24 @@ class PDFGenerator:
     
     def _setup_korean_font(self):
         """한글 폰트 설정"""
-        self.font_name = 'Helvetica'  # 기본 폰트
-        
         try:
-            # 프로젝트 내 폰트 파일 경로 (우선순위)
-            font_path = Path(__file__).parent / 'fonts' / 'NanumGothic.ttf'
+            # 시스템 한글 폰트 등록 시도
+            font_paths = [
+                '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+                '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf',
+                '/System/Library/Fonts/AppleGothic.ttf',
+            ]
             
-            if font_path.exists():
-                pdfmetrics.registerFont(TTFont('Korean', str(font_path)))
-                self.font_name = 'Korean'
-                print(f"Korean font loaded from project: {font_path}")
+            for font_path in font_paths:
+                if Path(font_path).exists():
+                    pdfmetrics.registerFont(TTFont('Korean', font_path))
+                    break
             else:
-                # 시스템 한글 폰트 시도
-                system_font_paths = [
-                    '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
-                    '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf',
-                    '/System/Library/Fonts/AppleGothic.ttf',
-                ]
-                
-                for sys_font_path in system_font_paths:
-                    if Path(sys_font_path).exists():
-                        pdfmetrics.registerFont(TTFont('Korean', sys_font_path))
-                        self.font_name = 'Korean'
-                        print(f"Korean font loaded from system: {sys_font_path}")
-                        break
-                else:
-                    print("Warning: Korean font not found. Using default font (Helvetica).")
+                # 폰트를 찾지 못한 경우 기본 폰트 사용
+                print("Warning: Korean font not found. Using default font.")
                 
         except Exception as e:
-            print(f"Font setup error: {e}. Using default font.")
+            print(f"Font setup error: {e}")
     
     def _setup_custom_styles(self):
         """커스텀 스타일 설정"""
@@ -63,7 +52,7 @@ class PDFGenerator:
         self.title_style = ParagraphStyle(
             'CustomTitle',
             parent=self.styles['Heading1'],
-            fontName=self.font_name,
+            fontName='Korean',
             fontSize=18,
             textColor=colors.HexColor('#2C3E50'),
             alignment=TA_CENTER,
@@ -74,7 +63,7 @@ class PDFGenerator:
         self.problem_number_style = ParagraphStyle(
             'ProblemNumber',
             parent=self.styles['Normal'],
-            fontName=self.font_name,
+            fontName='Korean',
             fontSize=12,
             textColor=colors.HexColor('#3498DB'),
             spaceBefore=15,
@@ -86,7 +75,7 @@ class PDFGenerator:
         self.body_style = ParagraphStyle(
             'CustomBody',
             parent=self.styles['Normal'],
-            fontName=self.font_name,
+            fontName='Korean',
             fontSize=11,
             leading=16,
             leftIndent=10
@@ -94,7 +83,8 @@ class PDFGenerator:
     
     def generate_problem_pdf(self, unit, problems, output_path):
         """
-        문제지 PDF 생성
+        문제지 PDF 생성 (2x3 그리드 형식)
+        왼쪽: 문제 이미지, 오른쪽: 풀이 공간
         
         Args:
             unit: Unit 모델 객체
@@ -104,23 +94,95 @@ class PDFGenerator:
         doc = SimpleDocTemplate(
             output_path,
             pagesize=A4,
-            topMargin=20*mm,
-            bottomMargin=20*mm,
-            leftMargin=20*mm,
-            rightMargin=20*mm
+            topMargin=10*mm,
+            bottomMargin=10*mm,
+            leftMargin=10*mm,
+            rightMargin=10*mm
         )
         
         story = []
         
-        # 제목
-        title = f"{unit.workbook.name} - {unit.name}"
-        story.append(Paragraph(title, self.title_style))
-        story.append(Spacer(1, 10*mm))
+        # 제목과 날짜를 테이블로 배치 (제목 왼쪽, 날짜 오른쪽)
+        title_text = f"{unit.workbook.name} - {unit.name}"
+        date_text = f"{datetime.now().strftime('%Y-%m-%d')}"
         
-        # 메타 정보
-        meta_info = f"문제 수: {len(problems)}개 | 생성일: {datetime.now().strftime('%Y-%m-%d')}"
-        story.append(Paragraph(meta_info, self.styles['Normal']))
-        story.append(Spacer(1, 10*mm))
+        header_data = [[
+            Paragraph(title_text, self.title_style),
+            Paragraph(f"<para align='right'>{date_text}</para>", self.styles['Normal'])
+        ]]
+        
+        header_table = Table(header_data, colWidths=[140*mm, 40*mm])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        
+        story.append(header_table)
+        story.append(Spacer(1, 5*mm))
+        story.append(PageBreak())
+        
+        # 2x3 그리드로 문제 배치
+        problems_per_page = 3
+        cell_width = 90*mm
+        cell_height = 90*mm
+        
+        for page_idx in range(0, len(problems), problems_per_page):
+            page_problems = problems[page_idx:page_idx + problems_per_page]
+            
+            table_data = []
+            
+            for problem in page_problems:
+                # 왼쪽: 문제 번호 + 이미지
+                left_content = []
+                problem_num_text = f"문제 {problem.problem_number}"
+                left_content.append(Paragraph(f"<b>{problem_num_text}</b>", self.problem_number_style))
+                
+                if problem.problem_image_path:
+                    img_path = Path(problem.problem_image_path)
+                    if img_path.exists():
+                        try:
+                            img = Image(str(img_path))
+                            max_width = 85*mm
+                            max_height = 80*mm
+                            
+                            aspect = img.imageHeight / img.imageWidth
+                            img_width = max_width
+                            img_height = img_width * aspect
+                            
+                            if img_height > max_height:
+                                img_height = max_height
+                                img_width = img_height / aspect
+                            
+                            img.drawWidth = img_width
+                            img.drawHeight = img_height
+                            left_content.append(img)
+                        except Exception as e:
+                            left_content.append(Paragraph(f"[이미지 로드 오류]", self.body_style))
+                
+                # 오른쪽: 풀이 공간
+                right_content = [Paragraph("<b>풀이</b>", self.problem_number_style)]
+                
+                table_data.append([left_content, right_content])
+            
+            # 테이블 생성
+            table = Table(table_data, colWidths=[cell_width, cell_width])
+            table.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                ('BOX', (0, 0), (-1, -1), 2, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ]))
+            
+            story.append(table)
+            
+            if page_idx + problems_per_page < len(problems):
+                story.append(PageBreak())
+        
+        doc.build(story)
+        return output_path
         
         # 각 문제 추가
         for idx, problem in enumerate(problems, 1):
