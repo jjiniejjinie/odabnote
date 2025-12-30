@@ -137,7 +137,6 @@ class PDFGenerator:
         
         story.append(header_table)
         story.append(Spacer(1, 5*mm))
-        story.append(PageBreak())
         
         # 2x3 그리드로 문제 배치
         problems_per_page = 3
