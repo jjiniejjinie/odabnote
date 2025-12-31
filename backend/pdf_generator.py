@@ -148,12 +148,18 @@ class PDFGenerator:
             table_data = []
             
             for problem in page_problems:
-                # 왼쪽: 문제 번호 + 이미지
+                # 왼쪽: 문제 번호 + 추출된 텍스트
                 left_content = []
                 problem_num_text = f"문제 {problem.problem_number}"
                 left_content.append(Paragraph(f"<b>{problem_num_text}</b>", self.problem_number_style))
                 
-                if problem.problem_image_path:
+                # 추출된 텍스트가 있으면 텍스트 표시
+                if problem.is_text_extracted and problem.problem_text:
+                    # LaTeX 수식을 유니코드로 변환
+                    text_display = self._convert_latex_to_unicode(problem.problem_text)
+                    left_content.append(Paragraph(text_display, self.body_style))
+                elif problem.problem_image_path:
+                    # 추출된 텍스트가 없으면 이미지 표시
                     img_path = Path(problem.problem_image_path)
                     if img_path.exists():
                         try:
@@ -267,6 +273,57 @@ class PDFGenerator:
         # PDF 생성
         doc.build(story)
         return output_path
+    
+    def _convert_latex_to_unicode(self, text):
+        """
+        LaTeX 수식을 유니코드로 변환
+        """
+        import re
+        
+        # 분수 변환
+        fraction_map = {
+            r'\\frac\{1\}\{2\}': '½',
+            r'\\frac\{1\}\{3\}': '⅓',
+            r'\\frac\{2\}\{3\}': '⅔',
+            r'\\frac\{1\}\{4\}': '¼',
+            r'\\frac\{3\}\{4\}': '¾',
+            r'\\frac\{1\}\{5\}': '⅕',
+            r'\\frac\{2\}\{5\}': '⅖',
+            r'\\frac\{3\}\{5\}': '⅗',
+            r'\\frac\{4\}\{5\}': '⅘',
+            r'\\frac\{1\}\{6\}': '⅙',
+            r'\\frac\{5\}\{6\}': '⅚',
+            r'\\frac\{1\}\{8\}': '⅛',
+            r'\\frac\{3\}\{8\}': '⅜',
+            r'\\frac\{5\}\{8\}': '⅝',
+            r'\\frac\{7\}\{8\}': '⅞',
+        }
+        
+        result = text
+        
+        # 분수 변환
+        for latex, unicode_char in fraction_map.items():
+            result = re.sub(latex, unicode_char, result)
+        
+        # 일반 분수 패턴 (위에 없는 것들)
+        result = re.sub(r'\\frac\{(\d+)\}\{(\d+)\}', r'\1/\2', result)
+        
+        # LaTeX 괄호 제거
+        result = result.replace(r'\(', '').replace(r'\)', '')
+        result = result.replace(r'\[', '').replace(r'\]', '')
+        
+        # 기타 수식 기호
+        result = result.replace(r'\times', '×')
+        result = result.replace(r'\div', '÷')
+        result = result.replace(r'\pm', '±')
+        result = result.replace(r'\le', '≤')
+        result = result.replace(r'\ge', '≥')
+        result = result.replace(r'\ne', '≠')
+        result = result.replace(r'\approx', '≈')
+        result = result.replace(r'\infty', '∞')
+        result = result.replace(r'\sqrt', '√')
+        
+        return result
     
     def _markdown_to_html(self, markdown_text):
         """
