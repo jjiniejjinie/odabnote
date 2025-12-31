@@ -294,6 +294,40 @@ class PDFGenerator:
         # ~ 기호 제거
         result = result.replace('~', '')
         
+        # square 기호
+        result = result.replace(r'\square', '□')
+        
+        # 연산 기호
+        result = result.replace(r'\times', '×')
+        result = result.replace(r'\div', '÷')
+        result = result.replace(r'\cdot', '·')
+        result = result.replace(r'\pm', '±')
+        result = result.replace(r'\mp', '∓')
+        
+        # 비교 기호
+        result = result.replace(r'\le', '≤')
+        result = result.replace(r'\ge', '≥')
+        result = result.replace(r'\leq', '≤')
+        result = result.replace(r'\geq', '≥')
+        result = result.replace(r'\ne', '≠')
+        result = result.replace(r'\neq', '≠')
+        result = result.replace(r'\approx', '≈')
+        result = result.replace(r'\equiv', '≡')
+        
+        # 기타 수학 기호
+        result = result.replace(r'\infty', '∞')
+        result = result.replace(r'\sqrt', '√')
+        result = result.replace(r'\pi', 'π')
+        result = result.replace(r'\alpha', 'α')
+        result = result.replace(r'\beta', 'β')
+        result = result.replace(r'\gamma', 'γ')
+        result = result.replace(r'\delta', 'δ')
+        result = result.replace(r'\theta', 'θ')
+        result = result.replace(r'\lambda', 'λ')
+        result = result.replace(r'\mu', 'μ')
+        result = result.replace(r'\sigma', 'σ')
+        result = result.replace(r'\omega', 'ω')
+        
         # 분수 변환
         fraction_map = {
             r'\\frac\{1\}\{2\}': '½',
@@ -319,17 +353,6 @@ class PDFGenerator:
         
         # 일반 분수 패턴 (위에 없는 것들)
         result = re.sub(r'\\frac\{(\d+)\}\{(\d+)\}', r'\1/\2', result)
-        
-        # 기타 수식 기호
-        result = result.replace(r'\times', '×')
-        result = result.replace(r'\div', '÷')
-        result = result.replace(r'\pm', '±')
-        result = result.replace(r'\le', '≤')
-        result = result.replace(r'\ge', '≥')
-        result = result.replace(r'\ne', '≠')
-        result = result.replace(r'\approx', '≈')
-        result = result.replace(r'\infty', '∞')
-        result = result.replace(r'\sqrt', '√')
         
         return result
     

@@ -67,7 +67,9 @@
             
             <!-- 수정 모드 -->
             <div id="editProblemTextArea" style="display: none;">
-                <textarea id="problemTextEdit" rows="10" class="form-control">{{ problem.problem_text }}</textarea>
+                <div id="problemTextEdit" contenteditable="true" class="form-control editable-katex" 
+                     style="min-height: 200px; padding: 10px; white-space: pre-wrap;">{{ problem.problem_text }}</div>
+                <input type="hidden" id="problemTextHidden">
                 <div class="text-actions">
                     <button class="btn btn-secondary" onclick="cancelEditProblemText()">취소</button>
                     <button class="btn btn-primary" onclick="saveProblemText()">저장</button>
@@ -235,6 +237,23 @@ async function saveExtractedText() {
 }
 
 function editProblemText() {
+    const editDiv = document.getElementById('problemTextEdit');
+    const originalText = editDiv.textContent;
+    
+    // 원본 텍스트를 hidden input에 저장
+    document.getElementById('problemTextHidden').value = originalText;
+    
+    // KaTeX 렌더링
+    renderMathInElement(editDiv, {
+        delimiters: [
+            {left: '\\(', right: '\\)', display: false},
+            {left: '\\[', right: '\\]', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '$$', right: '$$', display: true}
+        ],
+        throwOnError: false
+    });
+    
     document.getElementById('problemText').style.display = 'none';
     document.getElementById('editProblemTextArea').style.display = 'block';
 }
@@ -245,7 +264,9 @@ function cancelEditProblemText() {
 }
 
 async function saveProblemText() {
-    const text = document.getElementById('problemTextEdit').value;
+    // contenteditable div의 텍스트 추출
+    const editDiv = document.getElementById('problemTextEdit');
+    const text = editDiv.textContent;
     
     try {
         const response = await fetch(`/problems/{{ problem.id }}/text/save`, {
