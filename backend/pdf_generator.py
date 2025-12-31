@@ -186,13 +186,16 @@ class PDFGenerator:
                 
                 table_data.append([left_content, right_content])
             
-            # 테이블 생성
-            table = Table(table_data, colWidths=[cell_width, cell_width])
+            # 테이블 생성 (높이 제한)
+            cell_height = 85*mm
+            row_heights = [cell_height] * len(table_data)
+            
+            table = Table(table_data, colWidths=[cell_width, cell_width], rowHeights=row_heights)
             table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.grey),
                 ('BOX', (0, 0), (-1, -1), 2, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('LEFTPADDING', (0, 0), (-1, -1), 5),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 5),
                 ('TOPPADDING', (0, 0), (-1, -1), 5),
@@ -280,6 +283,17 @@ class PDFGenerator:
         """
         import re
         
+        # LaTeX 괄호 제거 (먼저)
+        result = text.replace(r'\(', '').replace(r'\)', '')
+        result = result.replace(r'\[', '').replace(r'\]', '')
+        
+        # mathrm, text 등 제거
+        result = re.sub(r'\\mathrm\{([^}]+)\}', r'\1', result)
+        result = re.sub(r'\\text\{([^}]+)\}', r'\1', result)
+        
+        # ~ 기호 제거
+        result = result.replace('~', '')
+        
         # 분수 변환
         fraction_map = {
             r'\\frac\{1\}\{2\}': '½',
@@ -299,18 +313,12 @@ class PDFGenerator:
             r'\\frac\{7\}\{8\}': '⅞',
         }
         
-        result = text
-        
         # 분수 변환
         for latex, unicode_char in fraction_map.items():
             result = re.sub(latex, unicode_char, result)
         
         # 일반 분수 패턴 (위에 없는 것들)
         result = re.sub(r'\\frac\{(\d+)\}\{(\d+)\}', r'\1/\2', result)
-        
-        # LaTeX 괄호 제거
-        result = result.replace(r'\(', '').replace(r'\)', '')
-        result = result.replace(r'\[', '').replace(r'\]', '')
         
         # 기타 수식 기호
         result = result.replace(r'\times', '×')
