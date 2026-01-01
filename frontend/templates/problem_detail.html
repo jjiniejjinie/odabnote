@@ -45,11 +45,17 @@
         <div id="extractedTextArea" style="display: none;">
             <div class="form-group">
                 <label for="extractedText">추출된 텍스트 (수정 가능)</label>
-                <textarea id="extractedText" rows="10" class="form-control" 
+                <!-- 수식 렌더링을 위한 표시 영역 -->
+                <div id="extractedTextDisplay" class="text-display" style="min-height: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: white; margin-bottom: 10px; white-space: pre-wrap;">
+                </div>
+                <!-- 수정 모드 textarea (숨김) -->
+                <textarea id="extractedText" rows="10" class="form-control" style="display: none;"
                           placeholder="추출된 텍스트가 여기에 표시됩니다..."></textarea>
             </div>
             <div class="text-actions">
-                <button class="btn btn-secondary" onclick="cancelExtractedText()">취소</button>
+                <button class="btn btn-secondary" id="editExtractedBtn" onclick="editExtractedText()">✏️ 수정</button>
+                <button class="btn btn-secondary" id="cancelEditExtractedBtn" onclick="cancelEditExtractedText()" style="display: none;">취소</button>
+                <button class="btn btn-secondary" onclick="cancelExtractedText()">닫기</button>
                 <button class="btn btn-primary" onclick="saveExtractedText()">저장</button>
             </div>
         </div>
@@ -186,8 +192,24 @@ async function extractText() {
         const data = await response.json();
         
         if (data.success) {
-            // 추출된 텍스트를 textarea에 표시
+            // 추출된 텍스트를 숨겨진 textarea에 저장
             document.getElementById('extractedText').value = data.text;
+            
+            // 표시 영역에 KaTeX 렌더링된 텍스트 보여주기
+            const displayDiv = document.getElementById('extractedTextDisplay');
+            displayDiv.textContent = data.text;
+            
+            // KaTeX 렌더링
+            renderMathInElement(displayDiv, {
+                delimiters: [
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '$$', right: '$$', display: true}
+                ],
+                throwOnError: false
+            });
+            
             document.getElementById('extractedTextArea').style.display = 'block';
             
             // 버튼 숨기기
@@ -209,6 +231,44 @@ async function extractText() {
 function cancelExtractedText() {
     document.getElementById('extractedTextArea').style.display = 'none';
     document.querySelector('.section-header .btn-primary').style.display = 'inline-block';
+    
+    // 수정 모드 초기화
+    document.getElementById('extractedTextDisplay').style.display = 'block';
+    document.getElementById('extractedText').style.display = 'none';
+    document.getElementById('editExtractedBtn').style.display = 'inline-block';
+    document.getElementById('cancelEditExtractedBtn').style.display = 'none';
+}
+
+function editExtractedText() {
+    // 표시 영역 숨기고 textarea 보이기
+    document.getElementById('extractedTextDisplay').style.display = 'none';
+    document.getElementById('extractedText').style.display = 'block';
+    document.getElementById('editExtractedBtn').style.display = 'none';
+    document.getElementById('cancelEditExtractedBtn').style.display = 'inline-block';
+}
+
+function cancelEditExtractedText() {
+    // textarea 숨기고 표시 영역 다시 보이기
+    const displayDiv = document.getElementById('extractedTextDisplay');
+    const textarea = document.getElementById('extractedText');
+    
+    displayDiv.textContent = textarea.value;
+    
+    // KaTeX 렌더링
+    renderMathInElement(displayDiv, {
+        delimiters: [
+            {left: '\\(', right: '\\)', display: false},
+            {left: '\\[', right: '\\]', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '$$', right: '$$', display: true}
+        ],
+        throwOnError: false
+    });
+    
+    displayDiv.style.display = 'block';
+    textarea.style.display = 'none';
+    document.getElementById('editExtractedBtn').style.display = 'inline-block';
+    document.getElementById('cancelEditExtractedBtn').style.display = 'none';
 }
 
 async function saveExtractedText() {
