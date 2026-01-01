@@ -44,16 +44,12 @@
         <!-- 추출된 텍스트 편집 영역 -->
         <div id="extractedTextArea" style="display: none;">
             <div class="form-group">
-                <label for="extractedText">추출된 텍스트 (클릭하여 수정 가능)</label>
-                <!-- KaTeX 렌더링 + 편집 가능한 영역 -->
+                <label for="extractedText">추출된 텍스트 (Markdown)</label>
+                <!-- KaTeX 렌더링 (읽기 전용) -->
                 <div id="extractedTextDisplay" 
-                     contenteditable="true"
                      class="text-display" 
-                     style="min-height: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: white; margin-bottom: 10px; white-space: pre-wrap; cursor: text;"
-                     spellcheck="false">
+                     style="min-height: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: white; margin-bottom: 10px; white-space: pre-wrap;">
                 </div>
-                <!-- 원본 LaTeX 텍스트 저장 -->
-                <input type="hidden" id="extractedTextOriginal">
             </div>
             <div class="text-actions">
                 <button class="btn btn-secondary" onclick="closeExtractedText()">닫기</button>
@@ -178,6 +174,8 @@
 
 {% block extra_js %}
 <script>
+let extractedOriginalText = ''; // 원본 텍스트 저장용 전역 변수
+
 async function extractText() {
     const btnText = document.getElementById('extractBtn');
     const btnLoading = document.getElementById('extractLoading');
@@ -193,8 +191,8 @@ async function extractText() {
         const data = await response.json();
         
         if (data.success) {
-            // 원본 텍스트 저장
-            document.getElementById('extractedTextOriginal').value = data.text;
+            // 원본 텍스트 전역 변수에 저장
+            extractedOriginalText = data.text;
             
             // 표시 영역에 텍스트 설정
             const displayDiv = document.getElementById('extractedTextDisplay');
@@ -209,13 +207,6 @@ async function extractText() {
                     {left: '$$', right: '$$', display: true}
                 ],
                 throwOnError: false
-            });
-            
-            // contenteditable div에서 입력 전 원본 텍스트 업데이트
-            displayDiv.addEventListener('beforeinput', function(e) {
-                // 사용자가 타이핑할 때마다 원본 텍스트를 현재 innerText로 업데이트
-                const currentText = this.innerText || this.textContent;
-                document.getElementById('extractedTextOriginal').value = currentText;
             });
             
             document.getElementById('extractedTextArea').style.display = 'block';
@@ -242,9 +233,13 @@ function closeExtractedText() {
 }
 
 async function saveExtractedText() {
-    // contenteditable div에서 현재 순수 텍스트 추출
-    const displayDiv = document.getElementById('extractedTextDisplay');
-    const text = displayDiv.innerText || displayDiv.textContent;
+    // 전역 변수에 저장된 원본 텍스트 사용
+    const text = extractedOriginalText;
+    
+    if (!text) {
+        alert('저장할 텍스트가 없습니다.');
+        return;
+    }
     
     try {
         const response = await fetch(`/problems/{{ problem.id }}/text/save`, {

@@ -163,7 +163,11 @@ class PDFGenerator:
                     left_content.append(Paragraph(text_display, self.body_style))
                 elif problem.problem_image_path:
                     # 추출된 텍스트가 없으면 이미지 표시
-                    img_path = Path(problem.problem_image_path)
+                    # 상대 경로를 절대 경로로 변환
+                    from pathlib import Path as PathLib
+                    base_dir = PathLib(__file__).parent.parent
+                    img_path = base_dir / problem.problem_image_path
+                    
                     if img_path.exists():
                         try:
                             img = Image(str(img_path))
@@ -258,7 +262,11 @@ class PDFGenerator:
                     
                     # 정답 이미지
                     if problem.answer_image_path:
-                        img_path = Path(problem.answer_image_path)
+                        # 상대 경로를 절대 경로로 변환
+                        from pathlib import Path as PathLib
+                        base_dir = PathLib(__file__).parent.parent
+                        img_path = base_dir / problem.answer_image_path
+                        
                         if img_path.exists():
                             try:
                                 img = Image(str(img_path))
@@ -277,7 +285,9 @@ class PDFGenerator:
                                 img.drawHeight = img_height
                                 cell_content.append(img)
                             except Exception as e:
-                                cell_content.append(Paragraph(f"[이미지 로드 오류]", self.body_style))
+                                cell_content.append(Paragraph(f"[이미지 로드 오류: {e}]", self.body_style))
+                        else:
+                            cell_content.append(Paragraph(f"[이미지 파일 없음: {img_path}]", self.body_style))
                     
                     # 정답 텍스트
                     if problem.answer_text:
