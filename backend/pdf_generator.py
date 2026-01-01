@@ -157,6 +157,9 @@ class PDFGenerator:
                 if problem.is_text_extracted and problem.problem_text:
                     # LaTeX 수식을 유니코드로 변환
                     text_display = self._convert_latex_to_unicode(problem.problem_text)
+                    # HTML 특수문자 이스케이프 (< > &만)
+                    text_display = text_display.replace('&', '&amp;')
+                    text_display = text_display.replace('<br/>', '<br />')  # ReportLab 호환 형식
                     left_content.append(Paragraph(text_display, self.body_style))
                 elif problem.problem_image_path:
                     # 추출된 텍스트가 없으면 이미지 표시
@@ -279,11 +282,17 @@ class PDFGenerator:
     
     def _convert_latex_to_unicode(self, text):
         """
-        LaTeX 수식을 유니코드로 변환
+        LaTeX 수식을 유니코드로 변환하고 선지를 줄바꿈 처리
         """
         import re
         
-        # LaTeX 괄호 제거 (먼저)
+        # 먼저 선지 줄바꿈 처리 (1), (2), (3) 등을 찾아서 앞에 줄바꿈 추가)
+        # 패턴: (1), (2), (3), (4), (5) 형태
+        text = re.sub(r'(\s*)\((\d)\)', r'<br/>\n(\2)', text)
+        # 첫 번째 선지 앞의 줄바꿈 제거
+        text = re.sub(r'^<br/>\n', '', text)
+        
+        # LaTeX 괄호 제거
         result = text.replace(r'\(', '').replace(r'\)', '')
         result = result.replace(r'\[', '').replace(r'\]', '')
         
@@ -292,7 +301,7 @@ class PDFGenerator:
         result = re.sub(r'\\text\{([^}]+)\}', r'\1', result)
         
         # ~ 기호 제거
-        result = result.replace('~', '')
+        result = result.replace('~', ' ')
         
         # square 기호
         result = result.replace(r'\square', '□')
@@ -351,8 +360,14 @@ class PDFGenerator:
         for latex, unicode_char in fraction_map.items():
             result = re.sub(latex, unicode_char, result)
         
-        # 일반 분수 패턴 (위에 없는 것들)
-        result = re.sub(r'\\frac\{(\d+)\}\{(\d+)\}', r'\1/\2', result)
+        # 일반 분수 패턴 (위에 없는 것들) - 분자/분모 형식으로
+        result = re.sub(r'\\frac\{([^}]+)\}\{([^}]+)\}', r'\1/\2', result)
+        
+        # 중괄호 제거
+        result = result.replace('{', '').replace('}', '')
+        
+        # 백슬래시 제거 (남은 LaTeX 명령어들)
+        result = re.sub(r'\\[a-zA-Z]+', '', result)
         
         return result
     
