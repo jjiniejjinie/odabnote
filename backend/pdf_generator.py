@@ -215,7 +215,7 @@ class PDFGenerator:
     
     def generate_answer_pdf(self, unit, problems, output_path):
         """
-        정답지 PDF 생성
+        정답지 PDF 생성 (2단 레이아웃)
         
         Args:
             unit: Unit 모델 객체
@@ -225,10 +225,10 @@ class PDFGenerator:
         doc = SimpleDocTemplate(
             output_path,
             pagesize=A4,
-            topMargin=20*mm,
-            bottomMargin=20*mm,
-            leftMargin=20*mm,
-            rightMargin=20*mm
+            topMargin=15*mm,
+            bottomMargin=15*mm,
+            leftMargin=15*mm,
+            rightMargin=15*mm
         )
         
         story = []
@@ -236,45 +236,73 @@ class PDFGenerator:
         # 제목
         title = f"{unit.workbook.name} - {unit.name} [정답]"
         story.append(Paragraph(title, self.title_style))
-        story.append(Spacer(1, 10*mm))
+        story.append(Spacer(1, 5*mm))
         
-        # 각 문제의 정답 추가
-        for idx, problem in enumerate(problems, 1):
-            if not problem.has_answer:
-                continue
+        # 정답이 있는 문제만 필터링
+        problems_with_answers = [p for p in problems if p.has_answer]
+        
+        # 2개씩 묶어서 테이블로 배치
+        col_width = 85*mm
+        
+        for i in range(0, len(problems_with_answers), 2):
+            row_data = []
             
-            # 문제 번호
-            problem_num = Paragraph(f"<b>문제 {idx} 정답</b>", self.problem_number_style)
-            story.append(problem_num)
+            for j in range(2):
+                if i + j < len(problems_with_answers):
+                    problem = problems_with_answers[i + j]
+                    cell_content = []
+                    
+                    # 문제 번호
+                    problem_num = f"<b>문제 {problem.problem_number} 정답</b>"
+                    cell_content.append(Paragraph(problem_num, self.problem_number_style))
+                    
+                    # 정답 이미지
+                    if problem.answer_image_path:
+                        img_path = Path(problem.answer_image_path)
+                        if img_path.exists():
+                            try:
+                                img = Image(str(img_path))
+                                max_width = 80*mm
+                                max_height = 100*mm
+                                
+                                aspect = img.imageHeight / img.imageWidth
+                                img_width = max_width
+                                img_height = img_width * aspect
+                                
+                                if img_height > max_height:
+                                    img_height = max_height
+                                    img_width = img_height / aspect
+                                
+                                img.drawWidth = img_width
+                                img.drawHeight = img_height
+                                cell_content.append(img)
+                            except Exception as e:
+                                cell_content.append(Paragraph(f"[이미지 로드 오류]", self.body_style))
+                    
+                    # 정답 텍스트
+                    if problem.answer_text:
+                        text_display = self._convert_latex_to_unicode(problem.answer_text)
+                        text_display = text_display.replace('&', '&amp;')
+                        text_display = text_display.replace('<br/>', '<br />')
+                        cell_content.append(Paragraph(text_display, self.body_style))
+                    
+                    row_data.append(cell_content)
+                else:
+                    # 빈 셀
+                    row_data.append([])
             
-            # 정답 이미지
-            if problem.answer_image_path:
-                img_path = Path(problem.answer_image_path)
-                if img_path.exists():
-                    try:
-                        img = Image(str(img_path))
-                        img_width = 170*mm
-                        aspect = img.imageHeight / img.imageWidth
-                        img_height = img_width * aspect
-                        
-                        max_height = 200*mm
-                        if img_height > max_height:
-                            img_height = max_height
-                            img_width = img_height / aspect
-                        
-                        img.drawWidth = img_width
-                        img.drawHeight = img_height
-                        story.append(img)
-                    except Exception as e:
-                        story.append(Paragraph(f"[이미지 로드 오류: {e}]", self.body_style))
+            # 테이블 생성
+            table = Table([row_data], colWidths=[col_width, col_width])
+            table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ]))
             
-            # 정답 텍스트
-            if problem.answer_text:
-                story.append(Spacer(1, 5*mm))
-                text_html = self._markdown_to_html(problem.answer_text)
-                story.append(Paragraph(text_html, self.body_style))
-            
-            story.append(Spacer(1, 10*mm))
+            story.append(table)
+            story.append(Spacer(1, 5*mm))
         
         # PDF 생성
         doc.build(story)
