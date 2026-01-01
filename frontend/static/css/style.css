@@ -60,15 +60,18 @@ body {
 .nav-menu {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 10px;
+    flex-wrap: nowrap;
 }
 
 .nav-menu a {
     color: var(--dark-color);
     text-decoration: none;
-    padding: 8px 15px;
+    padding: 8px 12px;
     border-radius: 5px;
     transition: background 0.3s;
+    white-space: nowrap;
+    font-size: 0.95rem;
 }
 
 .nav-menu a:hover {
@@ -875,13 +878,22 @@ body {
 /* 반응형 */
 @media (max-width: 768px) {
     .navbar .container {
-        flex-direction: column;
-        gap: 15px;
+        flex-direction: row;
+        gap: 10px;
+    }
+    
+    .nav-brand a {
+        font-size: 1.2rem;
     }
     
     .nav-menu {
-        flex-wrap: wrap;
-        justify-content: center;
+        gap: 5px;
+        flex-wrap: nowrap;
+    }
+    
+    .nav-menu a {
+        padding: 6px 8px;
+        font-size: 0.85rem;
     }
     
     .page-header {
@@ -902,5 +914,25 @@ body {
     .action-cards,
     .workbook-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+/* 더 작은 화면 (360px 이하) */
+@media (max-width: 360px) {
+    .navbar .container {
+        padding: 0 10px;
+    }
+    
+    .nav-brand a {
+        font-size: 1rem;
+    }
+    
+    .nav-menu {
+        gap: 3px;
+    }
+    
+    .nav-menu a {
+        padding: 5px 6px;
+        font-size: 0.75rem;
     }
 }
