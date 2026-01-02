@@ -633,10 +633,42 @@ def create_app(config_name='development'):
 # Railway/Render/Gunicorn용: app 객체를 모듈 레벨로 노출
 app = create_app(os.environ.get('FLASK_ENV', 'production'))
 
-# 데이터베이스 테이블 자동 생성 (배포 환경)
+# 데이터베이스 테이블 자동 생성 및 마이그레이션 (배포 환경)
 with app.app_context():
     db.create_all()
     print("Database tables created!")
+    
+    # 기존 사용자 마이그레이션 (첫 실행 시)
+    try:
+        users = User.query.all()
+        
+        # 기존 사용자가 있고, is_approved 필드가 없는 경우 마이그레이션
+        if users:
+            needs_migration = False
+            for user in users:
+                # is_approved 속성이 None인지 확인
+                if user.is_approved is None:
+                    needs_migration = True
+                    break
+            
+            if needs_migration:
+                print(f"마이그레이션 시작: {len(users)}명의 사용자 발견")
+                
+                # 첫 번째 사용자를 관리자로 설정
+                first_user = users[0]
+                first_user.is_admin = True
+                first_user.is_approved = True
+                print(f"✓ {first_user.username}을(를) 관리자로 설정")
+                
+                # 나머지 사용자 승인
+                for user in users[1:]:
+                    user.is_approved = True
+                    print(f"✓ {user.username} 승인")
+                
+                db.session.commit()
+                print("마이그레이션 완료!")
+    except Exception as e:
+        print(f"마이그레이션 중 오류 (무시 가능): {e}")
 
 # 개발 서버 실행
 if __name__ == '__main__':
