@@ -19,6 +19,10 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # 승인 시스템
+    is_approved = db.Column(db.Boolean, default=False, nullable=False)  # 관리자 승인 여부
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)  # 관리자 권한
+    
     # 관계
     workbooks = db.relationship('Workbook', backref='user', lazy=True, cascade='all, delete-orphan')
     

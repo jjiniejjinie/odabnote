@@ -92,6 +92,11 @@ def create_app(config_name='development'):
             user = User.query.filter_by(email=email).first()
             
             if user and user.check_password(password):
+                # 승인 여부 확인
+                if not user.is_approved:
+                    flash('관리자 승인 대기 중입니다. 승인 후 로그인할 수 있습니다.', 'warning')
+                    return render_template('login.html')
+                
                 login_user(user, remember=True)
                 flash('로그인 성공!', 'success')
                 return redirect(url_for('home'))
@@ -125,14 +130,15 @@ def create_app(config_name='development'):
                 flash('이미 사용 중인 사용자명입니다.', 'danger')
                 return render_template('register.html')
             
-            # 사용자 생성
+            # 사용자 생성 (기본적으로 승인 안 됨)
             user = User(username=username, email=email)
             user.set_password(password)
+            # is_approved는 기본값 False
             
             db.session.add(user)
             db.session.commit()
             
-            flash('회원가입 성공! 로그인해주세요.', 'success')
+            flash('회원가입 성공! 관리자 승인 후 로그인할 수 있습니다.', 'success')
             return redirect(url_for('login'))
         
         return render_template('register.html')
@@ -545,6 +551,73 @@ def create_app(config_name='development'):
         return jsonify({
             'units': [{'id': u.id, 'name': u.name} for u in units]
         })
+    
+    # ==================== 관리자 ====================
+    
+    @app.route('/admin/users')
+    @login_required
+    def admin_users():
+        """관리자 페이지 - 사용자 승인 관리"""
+        # 관리자만 접근 가능
+        if not current_user.is_admin:
+            flash('관리자만 접근할 수 있습니다.', 'danger')
+            return redirect(url_for('home'))
+        
+        # 승인 대기 중인 사용자 목록
+        pending_users = User.query.filter_by(is_approved=False).order_by(User.created_at.desc()).all()
+        
+        # 승인된 사용자 목록
+        approved_users = User.query.filter_by(is_approved=True).order_by(User.created_at.desc()).all()
+        
+        return render_template('admin_users.html', 
+                             pending_users=pending_users,
+                             approved_users=approved_users)
+    
+    @app.route('/admin/users/<int:user_id>/approve', methods=['POST'])
+    @login_required
+    def admin_approve_user(user_id):
+        """사용자 승인"""
+        if not current_user.is_admin:
+            flash('관리자만 접근할 수 있습니다.', 'danger')
+            return redirect(url_for('home'))
+        
+        user = User.query.get_or_404(user_id)
+        user.is_approved = True
+        db.session.commit()
+        
+        flash(f'{user.username}님을 승인했습니다.', 'success')
+        return redirect(url_for('admin_users'))
+    
+    @app.route('/admin/users/<int:user_id>/reject', methods=['POST'])
+    @login_required
+    def admin_reject_user(user_id):
+        """사용자 거부 (삭제)"""
+        if not current_user.is_admin:
+            flash('관리자만 접근할 수 있습니다.', 'danger')
+            return redirect(url_for('home'))
+        
+        user = User.query.get_or_404(user_id)
+        username = user.username
+        db.session.delete(user)
+        db.session.commit()
+        
+        flash(f'{username}님의 가입 신청을 거부했습니다.', 'info')
+        return redirect(url_for('admin_users'))
+    
+    @app.route('/admin/users/<int:user_id>/revoke', methods=['POST'])
+    @login_required
+    def admin_revoke_user(user_id):
+        """사용자 승인 취소"""
+        if not current_user.is_admin:
+            flash('관리자만 접근할 수 있습니다.', 'danger')
+            return redirect(url_for('home'))
+        
+        user = User.query.get_or_404(user_id)
+        user.is_approved = False
+        db.session.commit()
+        
+        flash(f'{user.username}님의 승인을 취소했습니다.', 'warning')
+        return redirect(url_for('admin_users'))
     
     # ==================== 정적 파일 서빙 ====================
     
