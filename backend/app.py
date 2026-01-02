@@ -638,37 +638,49 @@ with app.app_context():
     db.create_all()
     print("Database tables created!")
     
-    # 기존 사용자 마이그레이션 (첫 실행 시)
+    # PostgreSQL 컬럼 추가 마이그레이션 (한 번만 실행)
     try:
-        users = User.query.all()
+        # is_approved 컬럼이 없으면 추가
+        db.session.execute(db.text("""
+            ALTER TABLE users 
+            ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE NOT NULL;
+        """))
         
-        # 기존 사용자가 있고, is_approved 필드가 없는 경우 마이그레이션
+        db.session.execute(db.text("""
+            ALTER TABLE users 
+            ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE NOT NULL;
+        """))
+        
+        db.session.commit()
+        print("✓ 컬럼 추가 완료 (또는 이미 존재)")
+        
+        # 기존 사용자 승인 처리
+        users = User.query.all()
         if users:
-            needs_migration = False
-            for user in users:
-                # is_approved 속성이 None인지 확인
-                if user.is_approved is None:
-                    needs_migration = True
-                    break
-            
-            if needs_migration:
-                print(f"마이그레이션 시작: {len(users)}명의 사용자 발견")
+            # 승인되지 않은 사용자가 있는지 확인
+            unapproved = [u for u in users if not u.is_approved]
+            if unapproved:
+                print(f"기존 사용자 {len(users)}명 승인 처리 중...")
                 
-                # 첫 번째 사용자를 관리자로 설정
+                # 첫 번째 사용자를 관리자로
                 first_user = users[0]
-                first_user.is_admin = True
-                first_user.is_approved = True
-                print(f"✓ {first_user.username}을(를) 관리자로 설정")
+                if not first_user.is_admin:
+                    first_user.is_admin = True
+                    first_user.is_approved = True
+                    print(f"✓ {first_user.username} → 관리자")
                 
                 # 나머지 사용자 승인
                 for user in users[1:]:
-                    user.is_approved = True
-                    print(f"✓ {user.username} 승인")
+                    if not user.is_approved:
+                        user.is_approved = True
+                        print(f"✓ {user.username} → 승인")
                 
                 db.session.commit()
-                print("마이그레이션 완료!")
+                print("✅ 기존 사용자 마이그레이션 완료!")
+                
     except Exception as e:
-        print(f"마이그레이션 중 오류 (무시 가능): {e}")
+        print(f"마이그레이션 오류 (무시 가능): {e}")
+        db.session.rollback()
 
 # 개발 서버 실행
 if __name__ == '__main__':
