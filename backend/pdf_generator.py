@@ -92,7 +92,7 @@ class PDFGenerator:
             leftIndent=10
         )
     
-    def generate_problem_pdf(self, unit, problems, output_path):
+    def generate_problem_pdf(self, unit, problems, output_path, username=None):
         """
         문제지 PDF 생성 (2x3 그리드 형식)
         왼쪽: 문제 이미지, 오른쪽: 풀이 공간
@@ -101,12 +101,25 @@ class PDFGenerator:
             unit: Unit 모델 객체
             problems: Problem 모델 객체 리스트
             output_path: 저장할 파일 경로
+            username: 사용자명 (워터마크용, 선택사항)
         """
+        # 워터마크 추가 함수
+        def add_watermark(canvas, doc):
+            canvas.saveState()
+            canvas.setFont('Helvetica', 8)
+            canvas.setFillColorRGB(0.7, 0.7, 0.7)
+            watermark_text = f"개인 학습용"
+            if username:
+                watermark_text += f" - {username}"
+            watermark_text += " - 재배포 금지"
+            canvas.drawCentredString(A4[0] / 2, 15, watermark_text)
+            canvas.restoreState()
+        
         doc = SimpleDocTemplate(
             output_path,
             pagesize=A4,
             topMargin=10*mm,
-            bottomMargin=10*mm,
+            bottomMargin=15*mm,  # 워터마크 공간 확보
             leftMargin=10*mm,
             rightMargin=10*mm
         )
@@ -214,10 +227,11 @@ class PDFGenerator:
             if page_idx + problems_per_page < len(problems):
                 story.append(PageBreak())
         
-        doc.build(story)
+        # PDF 생성 (워터마크 포함)
+        doc.build(story, onFirstPage=add_watermark, onLaterPages=add_watermark)
         return output_path
     
-    def generate_answer_pdf(self, unit, problems, output_path):
+    def generate_answer_pdf(self, unit, problems, output_path, username=None):
         """
         정답지 PDF 생성 (2단 레이아웃)
         
@@ -225,12 +239,25 @@ class PDFGenerator:
             unit: Unit 모델 객체
             problems: Problem 모델 객체 리스트
             output_path: 저장할 파일 경로
+            username: 사용자명 (워터마크용, 선택사항)
         """
+        # 워터마크 추가 함수
+        def add_watermark(canvas, doc):
+            canvas.saveState()
+            canvas.setFont('Helvetica', 8)
+            canvas.setFillColorRGB(0.7, 0.7, 0.7)
+            watermark_text = f"개인 학습용"
+            if username:
+                watermark_text += f" - {username}"
+            watermark_text += " - 재배포 금지"
+            canvas.drawCentredString(A4[0] / 2, 15, watermark_text)
+            canvas.restoreState()
+        
         doc = SimpleDocTemplate(
             output_path,
             pagesize=A4,
             topMargin=15*mm,
-            bottomMargin=15*mm,
+            bottomMargin=20*mm,  # 워터마크 공간 확보
             leftMargin=15*mm,
             rightMargin=15*mm
         )
@@ -314,8 +341,8 @@ class PDFGenerator:
             story.append(table)
             story.append(Spacer(1, 5*mm))
         
-        # PDF 생성
-        doc.build(story)
+        # PDF 생성 (워터마크 포함)
+        doc.build(story, onFirstPage=add_watermark, onLaterPages=add_watermark)
         return output_path
     
     def _convert_latex_to_unicode(self, text):

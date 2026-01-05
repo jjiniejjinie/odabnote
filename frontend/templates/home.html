@@ -72,5 +72,38 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- 저작권 안내 푸터 추가 -->
+    <footer class="home-footer">
+        <p class="footer-warning">
+            ⚠️ 본 서비스는 개인 학습 목적으로만 사용 가능합니다. 
+            저작권이 있는 교재의 문제를 무단으로 공유하거나 상업적으로 이용할 수 없습니다.
+        </p>
+        <p class="footer-copyright">
+            문제 출처 교재의 저작권은 원저작자에게 있습니다.
+        </p>
+    </footer>
 </div>
+
+<style>
+    .home-footer {
+        margin-top: 60px;
+        padding: 25px 0;
+        border-top: 1px solid #e0e0e0;
+        text-align: center;
+    }
+    
+    .footer-warning {
+        margin: 8px 0;
+        color: #666;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+    
+    .footer-copyright {
+        margin: 8px 0;
+        color: #999;
+        font-size: 12px;
+    }
+</style>
 {% endblock %}

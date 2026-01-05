@@ -35,6 +35,24 @@
                        placeholder="비밀번호를 다시 입력하세요">
             </div>
 
+            <!-- 이용약관 동의 박스 -->
+            <div class="terms-notice">
+                <h4>📢 이용 안내</h4>
+                <p class="terms-intro">
+                    본 서비스는 <strong>개인 학습 목적</strong>으로만 사용하셔야 합니다.
+                </p>
+                <ul class="terms-list">
+                    <li>본인이 구매한 교재의 문제만 등록해주세요</li>
+                    <li>타인의 저작물을 무단으로 공유하지 마세요</li>
+                    <li>상업적 목적으로 사용할 수 없습니다</li>
+                    <li>문제 출처 교재의 저작권은 원저작자에게 있습니다</li>
+                </ul>
+                <label class="terms-agree">
+                    <input type="checkbox" name="agree_terms" required>
+                    <span>위 내용을 확인했으며 개인 학습 목적으로만 사용하겠습니다</span>
+                </label>
+            </div>
+
             <button type="submit" class="btn btn-primary btn-block">회원가입</button>
         </form>
 
@@ -43,4 +61,71 @@
         </div>
     </div>
 </div>
+
+<style>
+    .terms-notice {
+        background-color: #fff3cd;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 25px 0;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .terms-notice h4 {
+        margin-top: 0;
+        margin-bottom: 12px;
+        color: #856404;
+        font-size: 16px;
+    }
+    
+    .terms-intro {
+        font-size: 14px;
+        line-height: 1.6;
+        margin-bottom: 15px;
+        color: #333;
+    }
+    
+    .terms-list {
+        font-size: 13px;
+        margin: 15px 0;
+        padding-left: 20px;
+        color: #555;
+    }
+    
+    .terms-list li {
+        margin: 8px 0;
+        line-height: 1.5;
+    }
+    
+    .terms-agree {
+        display: flex;
+        align-items: flex-start;
+        margin-top: 18px;
+        cursor: pointer;
+        padding: 12px;
+        background-color: #fff;
+        border-radius: 5px;
+        border: 2px solid #ffc107;
+        transition: background-color 0.2s;
+    }
+    
+    .terms-agree:hover {
+        background-color: #fffbf0;
+    }
+    
+    .terms-agree input[type="checkbox"] {
+        margin-right: 10px;
+        margin-top: 3px;
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    
+    .terms-agree span {
+        font-size: 13px;
+        color: #333;
+        font-weight: 500;
+    }
+</style>
 {% endblock %}

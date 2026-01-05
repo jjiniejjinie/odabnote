@@ -116,6 +116,12 @@ def create_app(config_name='development'):
             email = request.form.get('email')
             password = request.form.get('password')
             confirm_password = request.form.get('confirm_password')
+            agree_terms = request.form.get('agree_terms')  # 이용약관 동의
+            
+            # 이용약관 동의 체크
+            if not agree_terms:
+                flash('이용약관에 동의해주세요.', 'danger')
+                return render_template('register.html')
             
             # 유효성 검사
             if password != confirm_password:
@@ -502,7 +508,8 @@ def create_app(config_name='development'):
         filename = f"문제지_{unit.workbook.name}_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         output_path = pdf_dir / filename
         
-        pdf_generator.generate_problem_pdf(unit, problems, str(output_path))
+        # PDF 생성 시 현재 사용자명 전달 (워터마크용)
+        pdf_generator.generate_problem_pdf(unit, problems, str(output_path), username=current_user.username)
         
         return send_file(str(output_path), as_attachment=True, download_name=filename)
     
@@ -530,7 +537,8 @@ def create_app(config_name='development'):
         filename = f"정답지_{unit.workbook.name}_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         output_path = pdf_dir / filename
         
-        pdf_generator.generate_answer_pdf(unit, problems, str(output_path))
+        # PDF 생성 시 현재 사용자명 전달 (워터마크용)
+        pdf_generator.generate_answer_pdf(unit, problems, str(output_path), username=current_user.username)
         
         return send_file(str(output_path), as_attachment=True, download_name=filename)
     

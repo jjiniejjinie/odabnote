@@ -26,6 +26,8 @@
                     <button type="button" class="btn btn-secondary" onclick="resetImage()">다시 선택</button>
                 </div>
             </div>
+            <!-- 저작권 안내 문구 추가 -->
+            <p class="image-notice">💡 본인이 구매한 교재의 문제만 등록해주세요</p>
         </div>
 
         <div class="form-section">
@@ -101,6 +103,18 @@
         </form>
     </div>
 </div>
+
+<style>
+    /* 저작권 안내 문구 스타일 */
+    .image-notice {
+        font-size: 12px;
+        color: #666;
+        margin-top: 12px;
+        margin-bottom: 0;
+        padding-left: 4px;
+        font-weight: 500;
+    }
+</style>
 
 {% endblock %}
 
