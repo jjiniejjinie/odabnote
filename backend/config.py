@@ -23,10 +23,15 @@ class Config:
     SQLALCHEMY_DATABASE_URI = database_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    # 파일 업로드
+    # 파일 업로드 (로컬 개발용 - Cloudinary 사용 시 불필요)
     UPLOAD_FOLDER = str(UPLOAD_FOLDER)
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB 제한
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+    
+    # Cloudinary 설정
+    CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME') or 'dni52fnbe'
+    CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY') or ''
+    CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET') or ''
     
     # Mathpix API
     MATHPIX_APP_ID = os.environ.get('MATHPIX_APP_ID') or ''

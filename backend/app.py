@@ -10,6 +10,9 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from werkzeug.utils import secure_filename
 from pathlib import Path
 from datetime import datetime
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 from models import db, User, Workbook, Unit, Problem
 from config import config
@@ -24,6 +27,14 @@ def create_app(config_name='development'):
     
     # 설정 로드
     app.config.from_object(config[config_name])
+    
+    # Cloudinary 설정
+    cloudinary.config(
+        cloud_name=app.config['CLOUDINARY_CLOUD_NAME'],
+        api_key=app.config['CLOUDINARY_API_KEY'],
+        api_secret=app.config['CLOUDINARY_API_SECRET'],
+        secure=True
+    )
     
     # 데이터베이스 초기화
     db.init_app(app)
@@ -51,21 +62,27 @@ def create_app(config_name='development'):
                filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
     
     def save_uploaded_file(file, subfolder='problems'):
-        """파일 업로드 및 저장"""
+        """파일 업로드 및 Cloudinary에 저장"""
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"{timestamp}_{filename}"
-            
-            save_dir = Path(app.config['UPLOAD_FOLDER']) / subfolder
-            save_dir.mkdir(parents=True, exist_ok=True)
-            
-            filepath = save_dir / filename
-            file.save(str(filepath))
-            
-            # 상대 경로로 반환
-            relative_path = f"uploads/{subfolder}/{filename}"
-            return relative_path
+            try:
+                # 고유한 public_id 생성
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename = secure_filename(file.filename)
+                public_id = f"odabnote/{subfolder}/{current_user.id}/{timestamp}_{filename.rsplit('.', 1)[0]}"
+                
+                # Cloudinary에 업로드
+                result = cloudinary.uploader.upload(
+                    file,
+                    public_id=public_id,
+                    folder=f"odabnote/{subfolder}",
+                    resource_type="image"
+                )
+                
+                # Cloudinary URL 반환 (public_id 저장)
+                return result['public_id']
+            except Exception as e:
+                print(f"Cloudinary upload error: {e}")
+                return None
         return None
     
     # ==================== 라우트 ====================
@@ -629,11 +646,39 @@ def create_app(config_name='development'):
     
     # ==================== 정적 파일 서빙 ====================
     
+    # Jinja2 템플릿 헬퍼 함수
+    @app.template_filter('cloudinary_url')
+    def cloudinary_url_filter(public_id, width=None, height=None):
+        """Cloudinary 이미지 URL 생성"""
+        if not public_id:
+            return ''
+        
+        # 이미 http로 시작하면 그대로 반환 (기존 로컬 URL 호환)
+        if public_id.startswith('http'):
+            return public_id
+        
+        # Cloudinary URL 생성
+        from cloudinary import CloudinaryImage
+        transformation = {}
+        if width:
+            transformation['width'] = width
+        if height:
+            transformation['height'] = height
+        
+        return CloudinaryImage(public_id).build_url(**transformation)
+    
     @app.route('/uploads/<path:filename>')
     def uploaded_file(filename):
-        """업로드된 파일 서빙"""
+        """
+        업로드된 파일 서빙 (하위 호환성)
+        새 파일은 Cloudinary 사용, 기존 파일은 로컬에서 서빙
+        """
         upload_folder = Path(app.config['UPLOAD_FOLDER'])
-        return send_from_directory(upload_folder, filename)
+        if (upload_folder / filename).exists():
+            return send_from_directory(upload_folder, filename)
+        else:
+            # 파일이 없으면 404
+            return "File not found", 404
     
     return app
 
