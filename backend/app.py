@@ -28,13 +28,13 @@ def create_app(config_name='development'):
     # 설정 로드
     app.config.from_object(config[config_name])
     
-    # Cloudinary 설정
-    cloudinary.config(
-        cloud_name=app.config['CLOUDINARY_CLOUD_NAME'],
-        api_key=app.config['CLOUDINARY_API_KEY'],
-        api_secret=app.config['CLOUDINARY_API_SECRET'],
-        secure=True
-    )
+    # Cloudinary 설정 (URL 방식)
+    if app.config.get('CLOUDINARY_URL'):
+        # CLOUDINARY_URL 환경변수가 있으면 자동으로 설정됨
+        import os
+        if 'CLOUDINARY_URL' in os.environ or app.config['CLOUDINARY_URL']:
+            # URL이 환경변수에 있으면 cloudinary가 자동으로 읽음
+            pass
     
     # 데이터베이스 초기화
     db.init_app(app)

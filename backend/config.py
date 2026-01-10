@@ -28,10 +28,8 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB 제한
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
     
-    # Cloudinary 설정
-    CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME') or 'dni52fnbe'
-    CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY') or ''
-    CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET') or ''
+    # Cloudinary 설정 (URL 방식)
+    CLOUDINARY_URL = os.environ.get('CLOUDINARY_URL') or ''
     
     # Mathpix API
     MATHPIX_APP_ID = os.environ.get('MATHPIX_APP_ID') or ''
