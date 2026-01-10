@@ -106,13 +106,23 @@ class PDFGenerator:
         # 워터마크 추가 함수
         def add_watermark(canvas, doc):
             canvas.saveState()
-            canvas.setFont('Helvetica', 8)
+            # 한글 폰트 사용 (self.font_name은 Korean 또는 Helvetica)
+            canvas.setFont(self.font_name if self.font_name != 'Helvetica' else 'Helvetica', 8)
             canvas.setFillColorRGB(0.7, 0.7, 0.7)
-            watermark_text = f"개인 학습용"
-            if username:
-                watermark_text += f" - {username}"
-            watermark_text += " - 재배포 금지"
-            canvas.drawCentredString(A4[0] / 2, 15, watermark_text)
+            
+            # 한글 폰트가 있으면 한글, 없으면 영문
+            if self.font_name != 'Helvetica':
+                watermark_text = "개인 학습용"
+                if username:
+                    watermark_text += f" - {username}"
+                watermark_text += " - 재배포 금지"
+            else:
+                watermark_text = "Personal Use Only"
+                if username:
+                    watermark_text += f" - {username}"
+                watermark_text += " - Do Not Redistribute"
+            
+            canvas.drawCentredString(A4[0] / 2, 20, watermark_text)
             canvas.restoreState()
         
         doc = SimpleDocTemplate(
@@ -244,13 +254,23 @@ class PDFGenerator:
         # 워터마크 추가 함수
         def add_watermark(canvas, doc):
             canvas.saveState()
-            canvas.setFont('Helvetica', 8)
+            # 한글 폰트 사용 (self.font_name은 Korean 또는 Helvetica)
+            canvas.setFont(self.font_name if self.font_name != 'Helvetica' else 'Helvetica', 8)
             canvas.setFillColorRGB(0.7, 0.7, 0.7)
-            watermark_text = f"개인 학습용"
-            if username:
-                watermark_text += f" - {username}"
-            watermark_text += " - 재배포 금지"
-            canvas.drawCentredString(A4[0] / 2, 15, watermark_text)
+            
+            # 한글 폰트가 있으면 한글, 없으면 영문
+            if self.font_name != 'Helvetica':
+                watermark_text = "개인 학습용"
+                if username:
+                    watermark_text += f" - {username}"
+                watermark_text += " - 재배포 금지"
+            else:
+                watermark_text = "Personal Use Only"
+                if username:
+                    watermark_text += f" - {username}"
+                watermark_text += " - Do Not Redistribute"
+            
+            canvas.drawCentredString(A4[0] / 2, 20, watermark_text)
             canvas.restoreState()
         
         doc = SimpleDocTemplate(
