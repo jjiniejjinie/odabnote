@@ -25,8 +25,8 @@ class Config:
     
     # 파일 업로드 (로컬 개발용 - Cloudinary 사용 시 불필요)
     UPLOAD_FOLDER = str(UPLOAD_FOLDER)
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB 제한
-    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+    MAX_CONTENT_LENGTH = 2 * 1024 * 1024  # 2MB 제한
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}  # gif 제거 (용량 큼)
     
     # Cloudinary 설정 (URL 방식)
     CLOUDINARY_URL = os.environ.get('CLOUDINARY_URL') or ''

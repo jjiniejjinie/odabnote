@@ -11,14 +11,18 @@
     <form method="POST" enctype="multipart/form-data" class="problem-add-form">
         <div class="form-section">
             <h3>1. 문제 이미지</h3>
+            <p class="form-hint" style="color: #666; font-size: 14px; margin-bottom: 10px;">
+                📌 <strong>이미지 요구사항:</strong> 2MB 이하, PNG/JPG/WEBP 형식만 가능
+            </p>
             <div class="image-upload-area" id="imageUploadArea">
                 <input type="file" id="problem_image" name="problem_image" 
-                       accept="image/*" required hidden onchange="previewImage(event)">
+                       accept="image/png,image/jpeg,image/jpg,image/webp" required hidden onchange="previewImage(event)">
                 <label for="problem_image" class="upload-label">
                     <div class="upload-icon">📷</div>
                     <div class="upload-text">
                         <p><strong>클릭하여 이미지 선택</strong></p>
                         <p>또는 드래그 앤 드롭</p>
+                        <p style="font-size: 12px; color: #999; margin-top: 5px;">최대 2MB</p>
                     </div>
                 </label>
                 <div id="imagePreview" class="image-preview" style="display: none;">
@@ -26,8 +30,6 @@
                     <button type="button" class="btn btn-secondary" onclick="resetImage()">다시 선택</button>
                 </div>
             </div>
-            <!-- 저작권 안내 문구 추가 -->
-            <p class="image-notice">💡 본인이 구매한 교재의 문제만 등록해주세요</p>
         </div>
 
         <div class="form-section">
@@ -103,18 +105,6 @@
         </form>
     </div>
 </div>
-
-<style>
-    /* 저작권 안내 문구 스타일 */
-    .image-notice {
-        font-size: 12px;
-        color: #666;
-        margin-top: 12px;
-        margin-bottom: 0;
-        padding-left: 4px;
-        font-weight: 500;
-    }
-</style>
 
 {% endblock %}
 

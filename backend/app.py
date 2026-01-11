@@ -71,29 +71,49 @@ def create_app(config_name='development'):
         return '.' in filename and \
                filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
     
+    def check_file_size(file):
+        """파일 크기 체크 (2MB 제한)"""
+        file.seek(0, 2)  # 파일 끝으로 이동
+        size = file.tell()  # 현재 위치 = 파일 크기
+        file.seek(0)  # 처음으로 되돌리기
+        
+        max_size = 2 * 1024 * 1024  # 2MB
+        return size <= max_size, size
+    
     def save_uploaded_file(file, subfolder='problems'):
         """파일 업로드 및 Cloudinary에 저장"""
         if file and allowed_file(file.filename):
+            # 파일 크기 체크
+            is_valid, file_size = check_file_size(file)
+            if not is_valid:
+                size_mb = file_size / (1024 * 1024)
+                raise ValueError(f'파일 크기가 너무 큽니다. ({size_mb:.1f}MB) 2MB 이하로 업로드해주세요.')
+            
             try:
                 # 고유한 public_id 생성
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 filename = secure_filename(file.filename)
                 public_id = f"odabnote/{subfolder}/{current_user.id}/{timestamp}_{filename.rsplit('.', 1)[0]}"
                 
-                # Cloudinary에 업로드
+                # Cloudinary에 업로드 (자동 최적화)
                 result = cloudinary.uploader.upload(
                     file,
                     public_id=public_id,
                     folder=f"odabnote/{subfolder}",
-                    resource_type="image"
+                    resource_type="image",
+                    quality="auto:good",  # 자동 화질 최적화
+                    fetch_format="auto"   # 최적 포맷 자동 선택
                 )
                 
                 # Cloudinary URL 반환 (public_id 저장)
                 return result['public_id']
+            except ValueError as ve:
+                # 파일 크기 에러는 그대로 전달
+                raise ve
             except Exception as e:
                 print(f"Cloudinary upload error: {e}")
-                return None
-        return None
+                raise Exception(f'이미지 업로드 중 오류가 발생했습니다: {str(e)}')
+        raise ValueError('허용되지 않는 파일 형식입니다. PNG, JPG, JPEG, WEBP만 가능합니다.')
     
     # ==================== 라우트 ====================
     
@@ -380,11 +400,16 @@ def create_app(config_name='development'):
             flash('권한이 없습니다.', 'danger')
             return redirect(url_for('home'))
         
-        # 이미지 저장
-        image_path = save_uploaded_file(problem_image, f'problems/{unit_id}')
-        
-        if not image_path:
-            flash('이미지 업로드에 실패했습니다.', 'danger')
+        # 이미지 저장 (에러 처리 추가)
+        try:
+            image_path = save_uploaded_file(problem_image, f'problems/{unit_id}')
+        except ValueError as ve:
+            # 파일 크기/형식 에러
+            flash(str(ve), 'danger')
+            return redirect(url_for('problem_add'))
+        except Exception as e:
+            # 기타 업로드 에러
+            flash(f'이미지 업로드 중 오류 발생: {str(e)}', 'danger')
             return redirect(url_for('problem_add'))
         
         # 문제 번호 자동 할당
@@ -474,10 +499,17 @@ def create_app(config_name='development'):
         if answer_type == 'image':
             answer_image = request.files.get('answer_image')
             if answer_image:
-                image_path = save_uploaded_file(answer_image, f'answers/{problem.unit_id}')
-                # 기존 정답 덮어쓰기
-                problem.answer_image_path = image_path
-                problem.answer_text = None  # 텍스트 정답 제거
+                try:
+                    image_path = save_uploaded_file(answer_image, f'answers/{problem.unit_id}')
+                    # 기존 정답 덮어쓰기
+                    problem.answer_image_path = image_path
+                    problem.answer_text = None  # 텍스트 정답 제거
+                except ValueError as ve:
+                    flash(str(ve), 'danger')
+                    return redirect(url_for('problem_detail', problem_id=problem_id))
+                except Exception as e:
+                    flash(f'이미지 업로드 중 오류 발생: {str(e)}', 'danger')
+                    return redirect(url_for('problem_detail', problem_id=problem_id))
         elif answer_type == 'text':
             answer_text = request.form.get('answer_text')
             # 기존 정답 덮어쓰기
