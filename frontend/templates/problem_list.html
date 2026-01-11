@@ -32,7 +32,7 @@
             
             <div class="problem-preview">
                 {% if problem.problem_image_path %}
-                <img src="/{{ problem.problem_image_path }}" alt="문제 {{ problem.problem_number }}" 
+                <img src="{{ problem.problem_image_path | cloudinary_url }}" alt="문제 {{ problem.problem_number }}" 
                      onclick="showImageModal('{{ problem.problem_image_path }}')">
                 {% else %}
                 <div class="no-image">이미지 없음</div>
@@ -90,7 +90,9 @@
 {% block extra_js %}
 <script>
 function showImageModal(imagePath) {
-    document.getElementById('modalImage').src = '/' + imagePath;
+    // Cloudinary URL 생성
+    const cloudinaryUrl = 'https://res.cloudinary.com/dni6el4h3/image/upload/' + imagePath;
+    document.getElementById('modalImage').src = cloudinaryUrl;
     document.getElementById('imageModal').style.display = 'flex';
 }
 

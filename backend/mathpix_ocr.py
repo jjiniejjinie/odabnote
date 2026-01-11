@@ -105,6 +105,87 @@ class MathpixOCR:
                 'error': f'오류 발생: {str(e)}'
             }
     
+    def extract_from_url(self, image_url):
+        """
+        URL에서 텍스트 추출 (Markdown 형식) - Cloudinary용
+        
+        Args:
+            image_url: 이미지 URL
+            
+        Returns:
+            dict: {
+                'success': bool,
+                'text': str (Markdown),
+                'error': str (실패시)
+            }
+        """
+        try:
+            # API 키가 설정되지 않은 경우
+            if not self.app_id or not self.app_key:
+                return {
+                    'success': False,
+                    'error': 'Mathpix API 키가 설정되지 않았습니다.'
+                }
+            
+            # API 요청
+            headers = {
+                'app_id': self.app_id,
+                'app_key': self.app_key,
+                'Content-type': 'application/json'
+            }
+            
+            data = {
+                'src': image_url,  # URL 직접 전달
+                'formats': ['text', 'latex_styled'],  # Markdown 형식
+                'data_options': {
+                    'include_asciimath': True,
+                    'include_latex': True
+                }
+            }
+            
+            response = requests.post(
+                self.api_url,
+                json=data,
+                headers=headers,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                
+                # Markdown 텍스트 추출
+                text = result.get('text', '')
+                latex = result.get('latex_styled', '')
+                
+                # LaTeX 수식을 Markdown 형식으로 변환
+                if latex:
+                    markdown_text = self._latex_to_markdown(text, latex)
+                else:
+                    markdown_text = text
+                
+                return {
+                    'success': True,
+                    'text': markdown_text,
+                    'confidence': result.get('confidence', 0)
+                }
+            else:
+                error_msg = response.json().get('error', '알 수 없는 오류')
+                return {
+                    'success': False,
+                    'error': f'API 오류: {error_msg}'
+                }
+                
+        except requests.exceptions.Timeout:
+            return {
+                'success': False,
+                'error': 'API 요청 시간 초과'
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'오류 발생: {str(e)}'
+            }
+    
     def _latex_to_markdown(self, text, latex):
         """
         LaTeX 수식을 Markdown 형식으로 변환

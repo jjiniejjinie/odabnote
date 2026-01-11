@@ -423,13 +423,11 @@ def create_app(config_name='development'):
         if problem.unit.workbook.user_id != current_user.id:
             return jsonify({'success': False, 'error': '권한이 없습니다.'}), 403
         
-        # 절대 경로로 변환
-        from pathlib import Path
-        base_dir = Path(__file__).parent.parent
-        absolute_path = base_dir / problem.problem_image_path
+        # Cloudinary URL 생성
+        image_url = cloudinary.CloudinaryImage(problem.problem_image_path).build_url()
         
-        # OCR 실행
-        result = mathpix.extract_from_image(str(absolute_path))
+        # OCR 실행 (URL 직접 전달)
+        result = mathpix.extract_from_url(image_url)
         
         if result['success']:
             # DB에 저장하지 않고 텍스트만 반환
