@@ -37,7 +37,7 @@
         
         <div class="problem-image-container">
             {% if problem.problem_image_path %}
-            <img src="/{{ problem.problem_image_path }}" alt="문제 이미지" class="problem-image">
+            <img src="{{ problem.problem_image_path | cloudinary_url }}" alt="문제 이미지" class="problem-image">
             {% endif %}
         </div>
         
@@ -94,7 +94,7 @@
         {% if problem.has_answer %}
             {% if problem.answer_image_path %}
             <div class="answer-image-container">
-                <img src="/{{ problem.answer_image_path }}" alt="정답 이미지" class="answer-image">
+                <img src="{{ problem.answer_image_path | cloudinary_url }}" alt="정답 이미지" class="answer-image">
             </div>
             {% endif %}
             
