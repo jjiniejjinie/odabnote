@@ -17,11 +17,11 @@
         <p class="subtitle">{{ unit.problem_count }}개의 문제</p>
     </div>
     <div class="header-actions">
-        <a href="{{ url_for('generate_problem_docx', unit_id=unit.id) }}" 
+        <a href="{{ url_for('generate_problem_pdf', unit_id=unit.id) }}" 
            class="btn btn-secondary"
            title="나의 오답 문제 모아 문제지 만들기">
            📘 문제지 다운로드</a>
-        <a href="{{ url_for('generate_answer_docx', unit_id=unit.id) }}" 
+        <a href="{{ url_for('generate_answer_pdf', unit_id=unit.id) }}" 
            class="btn btn-secondary"
            title="나의 오답 문제 정답 모아보기">
            📗 정답지 다운로드</a>

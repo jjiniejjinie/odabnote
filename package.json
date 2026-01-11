@@ -1,0 +1,15 @@
+{
+  "name": "odabnote-pdf-generator",
+  "version": "1.0.0",
+  "description": "PDF generator with KaTeX support",
+  "main": "pdf_render.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "puppeteer": "^21.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

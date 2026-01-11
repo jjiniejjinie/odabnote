@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ unit.workbook.name }} - {{ unit.name }}</title>
+    
+    <!-- KaTeX CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            font-size: 11pt;
+            line-height: 1.6;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 5px 0;
+        }
+        
+        .title {
+            font-size: 16pt;
+            font-weight: bold;
+        }
+        
+        .date {
+            font-size: 10pt;
+            color: #666;
+        }
+        
+        .page-container {
+            page-break-after: always;
+        }
+        
+        .page-container:last-child {
+            page-break-after: avoid;
+        }
+        
+        .problem-grid {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+            border: 2px solid #000;
+        }
+        
+        .problem-row {
+            display: table-row;
+            height: 9cm;
+        }
+        
+        .problem-cell, .solution-cell {
+            display: table-cell;
+            width: 50%;
+            border: 1px solid #666;
+            padding: 8px;
+            vertical-align: top;
+        }
+        
+        .problem-number {
+            font-weight: bold;
+            font-size: 12pt;
+            margin-bottom: 8px;
+        }
+        
+        .problem-text {
+            font-size: 11pt;
+            line-height: 1.8;
+            white-space: pre-wrap;
+        }
+        
+        .solution-header {
+            font-weight: bold;
+            font-size: 11pt;
+            margin-bottom: 5px;
+        }
+        
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 8pt;
+            color: #999;
+            padding: 5px 0;
+        }
+        
+        /* KaTeX 스타일 조정 */
+        .katex {
+            font-size: 1.1em;
+        }
+        
+        .katex-display {
+            margin: 0.5em 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">{{ unit.workbook.name }} - {{ unit.name }}</div>
+        <div class="date">{{ date }}</div>
+    </div>
+    
+    {% set problems_per_page = 3 %}
+    {% for page_idx in range(0, problems|length, problems_per_page) %}
+    <div class="page-container">
+        <div class="problem-grid">
+            {% for problem in problems[page_idx:page_idx + problems_per_page] %}
+            <div class="problem-row">
+                <div class="problem-cell">
+                    <div class="problem-number">문제 {{ problem.problem_number }}</div>
+                    {% if problem.is_text_extracted and problem.problem_text %}
+                    <div class="problem-text">{{ problem.problem_text }}</div>
+                    {% else %}
+                    <div class="problem-text">[텍스트가 추출되지 않았습니다]</div>
+                    {% endif %}
+                </div>
+                <div class="solution-cell">
+                    <div class="solution-header">풀이</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    
+    <div class="footer">
+        개인 학습용{% if username %} - {{ username }}{% endif %} - 재배포 금지
+    </div>
+    
+    <!-- KaTeX JS -->
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Rendering KaTeX...');
+            
+            // 모든 .problem-text 요소에 KaTeX 렌더링
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\[', right: '\\]', display: true},
+                    {left: '\\(', right: '\\)', display: false}
+                ],
+                throwOnError: false,
+                strict: false
+            });
+            
+            console.log('KaTeX rendering complete!');
+        });
+    </script>
+</body>
+</html>

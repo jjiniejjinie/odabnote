@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ unit.workbook.name }} - {{ unit.name }} [정답]</title>
+    
+    <!-- KaTeX CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            font-size: 11pt;
+            line-height: 1.6;
+            padding: 10mm;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #000;
+        }
+        
+        .title {
+            font-size: 16pt;
+            font-weight: bold;
+        }
+        
+        .answer-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .answer-item {
+            border: 1px solid #666;
+            padding: 10px;
+            break-inside: avoid;
+        }
+        
+        .answer-number {
+            font-weight: bold;
+            font-size: 12pt;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .answer-text {
+            font-size: 11pt;
+            line-height: 1.8;
+            white-space: pre-wrap;
+        }
+        
+        .no-answer {
+            text-align: center;
+            padding: 50px;
+            color: #999;
+            font-size: 12pt;
+        }
+        
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 8pt;
+            color: #999;
+            padding: 5px 0;
+        }
+        
+        /* KaTeX 스타일 조정 */
+        .katex {
+            font-size: 1.1em;
+        }
+        
+        .katex-display {
+            margin: 0.5em 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">{{ unit.workbook.name }} - {{ unit.name }} [정답]</div>
+    </div>
+    
+    {% set problems_with_answers = problems | selectattr('has_answer') | list %}
+    
+    {% if problems_with_answers %}
+    <div class="answer-grid">
+        {% for problem in problems_with_answers %}
+        <div class="answer-item">
+            <div class="answer-number">문제 {{ problem.problem_number }} 정답</div>
+            {% if problem.answer_text %}
+            <div class="answer-text">{{ problem.answer_text }}</div>
+            {% elif problem.answer_image_path %}
+            <div class="answer-text">[이미지 정답]</div>
+            {% else %}
+            <div class="answer-text">[정답 없음]</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-answer">정답이 등록된 문제가 없습니다.</div>
+    {% endif %}
+    
+    <div class="footer">
+        개인 학습용{% if username %} - {{ username }}{% endif %} - 재배포 금지
+    </div>
+    
+    <!-- KaTeX JS -->
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Rendering KaTeX for answers...');
+            
+            // 모든 .answer-text 요소에 KaTeX 렌더링
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\[', right: '\\]', display: true},
+                    {left: '\\(', right: '\\)', display: false}
+                ],
+                throwOnError: false,
+                strict: false
+            });
+            
+            console.log('KaTeX rendering complete!');
+        });
+    </script>
+</body>
+</html>

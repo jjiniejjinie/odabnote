@@ -541,12 +541,12 @@ def create_app(config_name='development'):
         flash('문제가 삭제되었습니다.', 'info')
         return redirect(url_for('problem_list', unit_id=unit_id))
     
-    # ==================== Word 생성 ====================
+    # ==================== PDF 생성 (Puppeteer + KaTeX) ====================
     
-    @app.route('/units/<int:unit_id>/docx/problems')
+    @app.route('/units/<int:unit_id>/pdf/problems')
     @login_required
-    def generate_problem_docx(unit_id):
-        """문제지 Word 생성"""
+    def generate_problem_pdf(unit_id):
+        """문제지 PDF 생성 (KaTeX 렌더링)"""
         unit = Unit.query.get_or_404(unit_id)
         
         if unit.workbook.user_id != current_user.id:
@@ -560,22 +560,70 @@ def create_app(config_name='development'):
             flash('문제가 없습니다.', 'warning')
             return redirect(url_for('problem_list', unit_id=unit_id))
         
-        # Word 생성
-        docx_dir = Path(app.config['UPLOAD_FOLDER']) / 'docx'
-        docx_dir.mkdir(exist_ok=True)
-        
-        filename = f"문제지_{unit.workbook.name}_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-        output_path = docx_dir / filename
-        
-        # Word 생성 시 현재 사용자명 전달 (워터마크용)
-        word_generator.generate_problem_docx(unit, problems, str(output_path), username=current_user.username)
-        
-        return send_file(str(output_path), as_attachment=True, download_name=filename)
+        try:
+            # 임시 디렉토리 생성
+            temp_dir = Path(app.config['UPLOAD_FOLDER']) / 'temp'
+            pdf_dir = Path(app.config['UPLOAD_FOLDER']) / 'pdfs'
+            temp_dir.mkdir(exist_ok=True)
+            pdf_dir.mkdir(exist_ok=True)
+            
+            # HTML 생성
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            html_filename = f'temp_{timestamp}.html'
+            html_path = temp_dir / html_filename
+            
+            # Jinja2로 HTML 렌더링
+            html_content = render_template('pdf_template.html',
+                                         unit=unit,
+                                         problems=problems,
+                                         username=current_user.username,
+                                         date=datetime.now().strftime('%Y-%m-%d'))
+            
+            # HTML 파일 저장
+            with open(html_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            # PDF 출력 경로
+            pdf_filename = f"문제지_{unit.workbook.name}_{unit.name}_{timestamp}.pdf"
+            pdf_path = pdf_dir / pdf_filename
+            
+            # Node.js 스크립트 실행
+            import subprocess
+            base_dir = Path(__file__).parent
+            js_script = base_dir / 'pdf_render.js'
+            
+            result = subprocess.run(
+                ['node', str(js_script), str(html_path), str(pdf_path)],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if result.returncode != 0:
+                print(f"PDF generation error: {result.stderr}")
+                flash('PDF 생성 중 오류가 발생했습니다.', 'danger')
+                return redirect(url_for('problem_list', unit_id=unit_id))
+            
+            # 임시 HTML 파일 삭제
+            try:
+                html_path.unlink()
+            except:
+                pass
+            
+            return send_file(str(pdf_path), as_attachment=True, download_name=pdf_filename)
+            
+        except subprocess.TimeoutExpired:
+            flash('PDF 생성 시간이 초과되었습니다.', 'danger')
+            return redirect(url_for('problem_list', unit_id=unit_id))
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            flash(f'PDF 생성 중 오류가 발생했습니다: {str(e)}', 'danger')
+            return redirect(url_for('problem_list', unit_id=unit_id))
     
-    @app.route('/units/<int:unit_id>/docx/answers')
+    @app.route('/units/<int:unit_id>/pdf/answers')
     @login_required
-    def generate_answer_docx(unit_id):
-        """정답지 Word 생성"""
+    def generate_answer_pdf(unit_id):
+        """정답지 PDF 생성 (KaTeX 렌더링)"""
         unit = Unit.query.get_or_404(unit_id)
         
         if unit.workbook.user_id != current_user.id:
@@ -589,17 +637,65 @@ def create_app(config_name='development'):
             flash('문제가 없습니다.', 'warning')
             return redirect(url_for('problem_list', unit_id=unit_id))
         
-        # Word 생성
-        docx_dir = Path(app.config['UPLOAD_FOLDER']) / 'docx'
-        docx_dir.mkdir(exist_ok=True)
-        
-        filename = f"정답지_{unit.workbook.name}_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-        output_path = docx_dir / filename
-        
-        # Word 생성 시 현재 사용자명 전달 (워터마크용)
-        word_generator.generate_answer_docx(unit, problems, str(output_path), username=current_user.username)
-        
-        return send_file(str(output_path), as_attachment=True, download_name=filename)
+        try:
+            # 임시 디렉토리 생성
+            temp_dir = Path(app.config['UPLOAD_FOLDER']) / 'temp'
+            pdf_dir = Path(app.config['UPLOAD_FOLDER']) / 'pdfs'
+            temp_dir.mkdir(exist_ok=True)
+            pdf_dir.mkdir(exist_ok=True)
+            
+            # HTML 생성
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            html_filename = f'temp_answer_{timestamp}.html'
+            html_path = temp_dir / html_filename
+            
+            # Jinja2로 HTML 렌더링
+            html_content = render_template('answer_template.html',
+                                         unit=unit,
+                                         problems=problems,
+                                         username=current_user.username,
+                                         date=datetime.now().strftime('%Y-%m-%d'))
+            
+            # HTML 파일 저장
+            with open(html_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            # PDF 출력 경로
+            pdf_filename = f"정답지_{unit.workbook.name}_{unit.name}_{timestamp}.pdf"
+            pdf_path = pdf_dir / pdf_filename
+            
+            # Node.js 스크립트 실행
+            import subprocess
+            base_dir = Path(__file__).parent
+            js_script = base_dir / 'pdf_render.js'
+            
+            result = subprocess.run(
+                ['node', str(js_script), str(html_path), str(pdf_path)],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if result.returncode != 0:
+                print(f"PDF generation error: {result.stderr}")
+                flash('PDF 생성 중 오류가 발생했습니다.', 'danger')
+                return redirect(url_for('problem_list', unit_id=unit_id))
+            
+            # 임시 HTML 파일 삭제
+            try:
+                html_path.unlink()
+            except:
+                pass
+            
+            return send_file(str(pdf_path), as_attachment=True, download_name=pdf_filename)
+            
+        except subprocess.TimeoutExpired:
+            flash('PDF 생성 시간이 초과되었습니다.', 'danger')
+            return redirect(url_for('problem_list', unit_id=unit_id))
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            flash(f'PDF 생성 중 오류가 발생했습니다: {str(e)}', 'danger')
+            return redirect(url_for('problem_list', unit_id=unit_id))
     
     # ==================== API (AJAX용) ====================
     
