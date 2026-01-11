@@ -185,15 +185,20 @@ class PDFGenerator:
                     text_display = text_display.replace('<br/>', '<br />')  # ReportLab 호환 형식
                     left_content.append(Paragraph(text_display, self.body_style))
                 elif problem.problem_image_path:
-                    # 추출된 텍스트가 없으면 이미지 표시
-                    # 상대 경로를 절대 경로로 변환
-                    from pathlib import Path as PathLib
-                    base_dir = PathLib(__file__).parent.parent
-                    img_path = base_dir / problem.problem_image_path
-                    
-                    if img_path.exists():
-                        try:
-                            img = Image(str(img_path))
+                    # Cloudinary에서 이미지 다운로드
+                    try:
+                        import cloudinary
+                        import requests
+                        
+                        # Cloudinary URL 생성
+                        image_url = cloudinary.CloudinaryImage(problem.problem_image_path).build_url()
+                        
+                        # 이미지 다운로드
+                        response = requests.get(image_url, timeout=10)
+                        if response.status_code == 200:
+                            img_data = BytesIO(response.content)
+                            img = Image(img_data)
+                            
                             max_width = 85*mm
                             max_height = 80*mm
                             
@@ -208,8 +213,10 @@ class PDFGenerator:
                             img.drawWidth = img_width
                             img.drawHeight = img_height
                             left_content.append(img)
-                        except Exception as e:
-                            left_content.append(Paragraph(f"[이미지 로드 오류]", self.body_style))
+                        else:
+                            left_content.append(Paragraph(f"[이미지 로드 실패]", self.body_style))
+                    except Exception as e:
+                        left_content.append(Paragraph(f"[이미지 로드 오류: {str(e)}]", self.body_style))
                 
                 # 오른쪽: 풀이 공간
                 right_content = [Paragraph("<b>풀이</b>", self.problem_number_style)]
@@ -309,14 +316,20 @@ class PDFGenerator:
                     
                     # 정답 이미지
                     if problem.answer_image_path:
-                        # 상대 경로를 절대 경로로 변환
-                        from pathlib import Path as PathLib
-                        base_dir = PathLib(__file__).parent.parent
-                        img_path = base_dir / problem.answer_image_path
-                        
-                        if img_path.exists():
-                            try:
-                                img = Image(str(img_path))
+                        # Cloudinary에서 이미지 다운로드
+                        try:
+                            import cloudinary
+                            import requests
+                            
+                            # Cloudinary URL 생성
+                            image_url = cloudinary.CloudinaryImage(problem.answer_image_path).build_url()
+                            
+                            # 이미지 다운로드
+                            response = requests.get(image_url, timeout=10)
+                            if response.status_code == 200:
+                                img_data = BytesIO(response.content)
+                                img = Image(img_data)
+                                
                                 max_width = 80*mm
                                 max_height = 100*mm
                                 
@@ -331,10 +344,10 @@ class PDFGenerator:
                                 img.drawWidth = img_width
                                 img.drawHeight = img_height
                                 cell_content.append(img)
-                            except Exception as e:
-                                cell_content.append(Paragraph(f"[이미지 로드 오류: {e}]", self.body_style))
-                        else:
-                            cell_content.append(Paragraph(f"[이미지 파일 없음: {img_path}]", self.body_style))
+                            else:
+                                cell_content.append(Paragraph(f"[이미지 로드 실패]", self.body_style))
+                        except Exception as e:
+                            cell_content.append(Paragraph(f"[이미지 로드 오류: {str(e)}]", self.body_style))
                     
                     # 정답 텍스트
                     if problem.answer_text:
