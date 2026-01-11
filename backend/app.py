@@ -18,6 +18,7 @@ from models import db, User, Workbook, Unit, Problem
 from config import config
 from mathpix_ocr import MathpixOCR
 from pdf_generator import PDFGenerator
+from word_generator import WordGenerator
 
 # Flask 앱 생성
 def create_app(config_name='development'):
@@ -59,12 +60,13 @@ def create_app(config_name='development'):
     def load_user(user_id):
         return User.query.get(int(user_id))
     
-    # OCR 및 PDF 생성기
+    # OCR 및 PDF/Word 생성기
     mathpix = MathpixOCR(
         app.config['MATHPIX_APP_ID'],
         app.config['MATHPIX_APP_KEY']
     )
     pdf_generator = PDFGenerator()
+    word_generator = WordGenerator()
     
     # 파일 업로드 헬퍼
     def allowed_file(filename):
@@ -539,12 +541,12 @@ def create_app(config_name='development'):
         flash('문제가 삭제되었습니다.', 'info')
         return redirect(url_for('problem_list', unit_id=unit_id))
     
-    # ==================== PDF 생성 ====================
+    # ==================== Word 생성 ====================
     
-    @app.route('/units/<int:unit_id>/pdf/problems')
+    @app.route('/units/<int:unit_id>/docx/problems')
     @login_required
-    def generate_problem_pdf(unit_id):
-        """문제지 PDF 생성"""
+    def generate_problem_docx(unit_id):
+        """문제지 Word 생성"""
         unit = Unit.query.get_or_404(unit_id)
         
         if unit.workbook.user_id != current_user.id:
@@ -558,22 +560,22 @@ def create_app(config_name='development'):
             flash('문제가 없습니다.', 'warning')
             return redirect(url_for('problem_list', unit_id=unit_id))
         
-        # PDF 생성
-        pdf_dir = Path(app.config['UPLOAD_FOLDER']) / 'pdfs'
-        pdf_dir.mkdir(exist_ok=True)
+        # Word 생성
+        docx_dir = Path(app.config['UPLOAD_FOLDER']) / 'docx'
+        docx_dir.mkdir(exist_ok=True)
         
-        filename = f"문제지_{unit.workbook.name}_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        output_path = pdf_dir / filename
+        filename = f"문제지_{unit.workbook.name}_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+        output_path = docx_dir / filename
         
-        # PDF 생성 시 현재 사용자명 전달 (워터마크용)
-        pdf_generator.generate_problem_pdf(unit, problems, str(output_path), username=current_user.username)
+        # Word 생성 시 현재 사용자명 전달 (워터마크용)
+        word_generator.generate_problem_docx(unit, problems, str(output_path), username=current_user.username)
         
         return send_file(str(output_path), as_attachment=True, download_name=filename)
     
-    @app.route('/units/<int:unit_id>/pdf/answers')
+    @app.route('/units/<int:unit_id>/docx/answers')
     @login_required
-    def generate_answer_pdf(unit_id):
-        """정답지 PDF 생성"""
+    def generate_answer_docx(unit_id):
+        """정답지 Word 생성"""
         unit = Unit.query.get_or_404(unit_id)
         
         if unit.workbook.user_id != current_user.id:
@@ -587,15 +589,15 @@ def create_app(config_name='development'):
             flash('문제가 없습니다.', 'warning')
             return redirect(url_for('problem_list', unit_id=unit_id))
         
-        # PDF 생성
-        pdf_dir = Path(app.config['UPLOAD_FOLDER']) / 'pdfs'
-        pdf_dir.mkdir(exist_ok=True)
+        # Word 생성
+        docx_dir = Path(app.config['UPLOAD_FOLDER']) / 'docx'
+        docx_dir.mkdir(exist_ok=True)
         
-        filename = f"정답지_{unit.workbook.name}_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        output_path = pdf_dir / filename
+        filename = f"정답지_{unit.workbook.name}_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+        output_path = docx_dir / filename
         
-        # PDF 생성 시 현재 사용자명 전달 (워터마크용)
-        pdf_generator.generate_answer_pdf(unit, problems, str(output_path), username=current_user.username)
+        # Word 생성 시 현재 사용자명 전달 (워터마크용)
+        word_generator.generate_answer_docx(unit, problems, str(output_path), username=current_user.username)
         
         return send_file(str(output_path), as_attachment=True, download_name=filename)
     
