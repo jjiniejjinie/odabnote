@@ -107,9 +107,14 @@
             <div class="answer-number">문제 {{ problem.problem_number }} 정답</div>
             {% if problem.answer_text %}
             <div class="answer-text">{{ problem.answer_text }}</div>
-            {% elif problem.answer_image_path %}
-            <div class="answer-text">[이미지 정답]</div>
-            {% else %}
+            {% endif %}
+            {% if problem.answer_image_path %}
+            <div style="margin-top: 10px;">
+                <img src="https://res.cloudinary.com/dni6el4h3/image/upload/{{ problem.answer_image_path }}" 
+                     style="max-width: 100%; height: auto;">
+            </div>
+            {% endif %}
+            {% if not problem.answer_text and not problem.answer_image_path %}
             <div class="answer-text">[정답 없음]</div>
             {% endif %}
         </div>
