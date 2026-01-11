@@ -4,10 +4,12 @@ FROM python:3.11-slim
 # 작업 디렉토리
 WORKDIR /app
 
-# 시스템 패키지 업데이트 및 필요한 패키지 설치
+# 시스템 패키지 업데이트 및 Chromium + Node.js 설치
 RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
+    # Chromium 브라우저 (OS 패키지로 설치)
+    chromium \
+    chromium-driver \
+    # Chromium 의존성
     ca-certificates \
     fonts-liberation \
     libasound2 \
@@ -28,9 +30,9 @@ RUN apt-get update && apt-get install -y \
     libxkbcommon0 \
     libxrandr2 \
     xdg-utils \
-    libu2f-udev \
-    libvulkan1 \
+    # Node.js 설치용
     curl \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
 
 # Node.js 18.x 설치
@@ -46,12 +48,12 @@ COPY package-lock.json* .
 # Python 패키지 설치
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Node.js 패키지 설치 (Puppeteer + Chromium)
-RUN npm install
+# Puppeteer 설정: Chromium 자동 다운로드 막기!
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Puppeteer 캐시 디렉토리 설정
-ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
+# Node.js 패키지 설치 (Chromium 다운로드 안 함!)
+RUN npm ci --omit=dev || npm install
 
 # 앱 파일 복사
 COPY . .
