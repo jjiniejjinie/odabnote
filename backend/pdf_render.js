@@ -27,8 +27,11 @@ async function generatePDF(htmlPath, outputPath) {
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
-                '--disable-gpu'
-            ]
+                '--disable-gpu',
+                '--disable-software-rasterizer',
+                '--disable-extensions'
+            ],
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath()
         });
         
         console.log('Browser launched');
