@@ -70,9 +70,20 @@
             
             <!-- 수정 모드 -->
             <div id="editProblemTextArea" style="display: none;">
-                <div id="problemTextEdit" contenteditable="true" class="form-control editable-katex" 
-                     style="min-height: 200px; padding: 10px; white-space: pre-wrap;">{{ problem.problem_text }}</div>
-                <input type="hidden" id="problemTextHidden">
+                <!-- 원문 편집 textarea -->
+                <textarea id="problemTextRaw" 
+                          class="form-control" 
+                          style="min-height: 200px; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; margin-bottom: 10px;">{{ problem.problem_text }}</textarea>
+                
+                <!-- 미리보기 (KaTeX 렌더링) -->
+                <div style="margin-bottom: 10px;">
+                    <strong>미리보기:</strong>
+                </div>
+                <div id="problemTextPreview" 
+                     class="text-display" 
+                     style="padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; min-height: 200px;">
+                </div>
+                
                 <div class="text-actions">
                     <button class="btn btn-secondary" onclick="cancelEditProblemText()">취소</button>
                     <button class="btn btn-primary" onclick="saveProblemText()">저장</button>
@@ -264,14 +275,28 @@ async function saveExtractedText() {
 }
 
 function editProblemText() {
-    const editDiv = document.getElementById('problemTextEdit');
-    const originalText = editDiv.textContent;
+    const textarea = document.getElementById('problemTextRaw');
+    const preview = document.getElementById('problemTextPreview');
     
-    // 원본 텍스트를 hidden input에 저장
-    document.getElementById('problemTextHidden').value = originalText;
+    // 초기 렌더링
+    renderProblemPreview();
+    
+    // 실시간 렌더링
+    textarea.addEventListener('input', renderProblemPreview);
+    
+    document.getElementById('problemText').style.display = 'none';
+    document.getElementById('editProblemTextArea').style.display = 'block';
+}
+
+function renderProblemPreview() {
+    const textarea = document.getElementById('problemTextRaw');
+    const preview = document.getElementById('problemTextPreview');
+    
+    // 텍스트를 preview에 표시
+    preview.textContent = textarea.value;
     
     // KaTeX 렌더링
-    renderMathInElement(editDiv, {
+    renderMathInElement(preview, {
         delimiters: [
             {left: '\\(', right: '\\)', display: false},
             {left: '\\[', right: '\\]', display: true},
@@ -280,9 +305,6 @@ function editProblemText() {
         ],
         throwOnError: false
     });
-    
-    document.getElementById('problemText').style.display = 'none';
-    document.getElementById('editProblemTextArea').style.display = 'block';
 }
 
 function cancelEditProblemText() {
@@ -291,9 +313,9 @@ function cancelEditProblemText() {
 }
 
 async function saveProblemText() {
-    // contenteditable div의 텍스트 추출
-    const editDiv = document.getElementById('problemTextEdit');
-    const text = editDiv.textContent;
+    // textarea 원문만 저장!
+    const textarea = document.getElementById('problemTextRaw');
+    const text = textarea.value;
     
     try {
         const response = await fetch(`/problems/{{ problem.id }}/text/save`, {
