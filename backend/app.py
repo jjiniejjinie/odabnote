@@ -378,7 +378,7 @@ def create_app(config_name='development'):
             return redirect(url_for('workbook_list'))
         
         problems = Problem.query.filter_by(unit_id=unit_id)\
-                                .order_by(Problem.problem_number).all()
+                                .order_by(Problem.created_at.desc()).all()
         return render_template('problem_list.html', unit=unit, problems=problems)
     
     @app.route('/problems/add', methods=['GET', 'POST'])
