@@ -63,14 +63,18 @@
         .problem-row {
             display: table-row;
             height: 9cm;
+            max-height: 9cm;
         }
         
         .problem-cell, .solution-cell {
             display: table-cell;
             width: 50%;
+            height: 9cm;
+            max-height: 9cm;
             border: 1px solid #666;
             padding: 8px;
             vertical-align: top;
+            overflow: hidden;
         }
         
         .problem-number {
@@ -80,9 +84,11 @@
         }
         
         .problem-text {
-            font-size: 11pt;
-            line-height: 1.8;
+            font-size: 10pt;
+            line-height: 1.6;
             white-space: pre-wrap;
+            max-height: 8cm;
+            overflow: hidden;
         }
         
         .solution-header {
