@@ -126,6 +126,73 @@ def create_app(config_name='development'):
             return redirect(url_for('home'))
         return redirect(url_for('login'))
     
+    # ==================== Admin ====================
+    
+    @app.route('/admin/dashboard')
+    @login_required
+    def admin_dashboard():
+        """관리자 대시보드"""
+        # 관리자만 접근
+        if not current_user.is_admin:
+            flash('관리자만 접근할 수 있습니다.', 'danger')
+            return redirect(url_for('home'))
+        
+        # 전체 통계
+        stats = {
+            # 이미지 통계 (Cloudinary)
+            'total_images': Problem.query.filter(Problem.problem_image_path.isnot(None)).count() + 
+                           Problem.query.filter(Problem.answer_image_path.isnot(None)).count(),
+            'estimated_storage_mb': (Problem.query.count() * 1.5),  # 평균 1.5MB 추정
+            'storage_percentage': min(100, (Problem.query.count() * 1.5 / 25600) * 100),  # 25GB = 25600MB
+            
+            # DB 통계
+            'db_size_mb': Problem.query.count() * 0.05,  # 평균 50KB 추정
+            'db_percentage': min(100, (Problem.query.count() * 0.05 / 512) * 100),  # 512MB
+            
+            # Mathpix (이번 달)
+            'mathpix_count': Problem.query.filter(
+                Problem.is_text_extracted == True,
+                Problem.created_at >= datetime.now().replace(day=1)
+            ).count(),
+            'mathpix_percentage': min(100, (Problem.query.filter(
+                Problem.is_text_extracted == True,
+                Problem.created_at >= datetime.now().replace(day=1)
+            ).count() / 50) * 100),
+            
+            # PDF (추정 - 실제 로그 없음)
+            'pdf_count': 0,
+            
+            # 사용자
+            'total_users': User.query.count(),
+            'approved_users': User.query.filter_by(is_approved=True).count(),
+            'pending_users': User.query.filter_by(is_approved=False, is_admin=False).count(),
+            
+            # 컨텐츠
+            'total_workbooks': Workbook.query.count(),
+            'total_units': Unit.query.count(),
+            'total_problems': Problem.query.count(),
+            'extracted_problems': Problem.query.filter_by(is_text_extracted=True).count()
+        }
+        
+        # 사용자별 통계
+        users = User.query.all()
+        user_stats = []
+        for user in users:
+            workbook_count = Workbook.query.filter_by(user_id=user.id).count()
+            problem_count = db.session.query(Problem).join(Unit).join(Workbook)\
+                                     .filter(Workbook.user_id == user.id).count()
+            user_stats.append({
+                'username': user.username,
+                'email': user.email,
+                'workbook_count': workbook_count,
+                'problem_count': problem_count,
+                'created_at': user.created_at,
+                'is_admin': user.is_admin,
+                'is_approved': user.is_approved
+            })
+        
+        return render_template('admin_dashboard.html', stats=stats, user_stats=user_stats)
+    
     # ==================== 인증 ====================
     
     @app.route('/login', methods=['GET', 'POST'])

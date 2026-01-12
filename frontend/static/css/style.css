@@ -936,3 +936,18 @@ body {
         font-size: 0.75rem;
     }
 }
+
+
+/* Admin 링크 스타일 */
+.admin-link {
+    background: #FF9800 !important;
+    color: white !important;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.admin-link:hover {
+    background: #F57C00 !important;
+}
+
